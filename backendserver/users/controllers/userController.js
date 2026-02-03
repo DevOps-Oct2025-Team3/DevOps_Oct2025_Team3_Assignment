@@ -98,7 +98,16 @@ async function registerUser(req, res) {
 async function login(req, res) {
     const { username, password } = req.body;
     try {
-        const user = await User.findOne({ username });
+        if (typeof username !== "string" || typeof password !== "string") {
+            return res.status(400).json({ message: "Invalid request" });
+        }
+
+        const normalizedUsername = username.trim();
+        if (!normalizedUsername) {
+            return res.status(400).json({ message: "Invalid request" });
+        }
+
+        const user = await User.findOne({ username: { $eq: normalizedUsername } });
         if (!user) {
             return res.status(401).json({ message: "Invalid credentials" });
         }
