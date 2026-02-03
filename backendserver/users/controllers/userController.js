@@ -62,6 +62,10 @@ async function registerUser(req, res) {
     const { username, password, role } = req.body;
 
     try {
+        if (typeof username !== "string" || username.trim() === "") {
+            return res.status(400).json({ message: "Invalid username" });
+        }
+
         const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/;
         if (!passwordRegex.test(password)) {
             return res.status(400).json({ message: "Password does not meet complexity requirements." });
