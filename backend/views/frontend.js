@@ -1,6 +1,5 @@
 
-const API_BASE = 'http://localhost:3000/api'; // Change to your backend URL
-
+const API_BASE = 'http://localhost:3000'; 
 let token = localStorage.getItem('token');
 let userRole = localStorage.getItem('role')
 const views = {
@@ -34,7 +33,7 @@ function showView(viewName) {
 }
 
 function showDashboard(role) {
-    if (role === 'admin') {
+    if (role === 'Admin') {
         showView('admin');
         loadUsers();
     } else {
@@ -60,7 +59,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
         const response = await fetch(`${API_BASE}/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
+            body: JSON.stringify({ Username: username, Password: password })
         });
 
         if (!response.ok) throw new Error('Login failed');
@@ -89,7 +88,7 @@ navLogout.addEventListener('click', () => {
 // --- ADMIN FUNCTIONS ---
 async function loadUsers() {
     try {
-        const res = await fetch(`${API_BASE}/admin/users`, {
+        const res = await fetch(`${API_BASE}/admin`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const users = await res.json();
@@ -99,11 +98,11 @@ async function loadUsers() {
         users.forEach(u => {
             tbody.innerHTML += `
                 <tr>
-                    <td>${u.id}</td>
-                    <td>${u.username}</td>
-                    <td>${u.role}</td>
+                    <td>${u.UserId}</td>
+                    <td>${u.Username}</td>
+                    <td>${u.Role}</td>
                     <td>
-                        <button onclick="deleteUser(${u.id})" class="btn btn-sm btn-danger">Delete</button>
+                        <button onclick="deleteUser(${u.UserId})" class="btn btn-sm btn-danger">Delete</button>
                     </td>
                 </tr>
             `;
@@ -120,13 +119,13 @@ document.getElementById('createUserForm').addEventListener('submit', async (e) =
     const role = document.getElementById('newRole').value;
 
     try {
-        await fetch(`${API_BASE}/admin/users`, {
+        await fetch(`${API_BASE}/admin/create_user`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ username, password, role })
+            body: JSON.stringify({ Username: username, Password: password, Role: role })
         });
         loadUsers(); // Refresh list
         e.target.reset();
@@ -139,7 +138,7 @@ document.getElementById('createUserForm').addEventListener('submit', async (e) =
 window.deleteUser = async (id) => {
     if(!confirm("Are you sure?")) return;
     try {
-        await fetch(`${API_BASE}/admin/users/${id}`, {
+        await fetch(`${API_BASE}/admin/delete_user/${id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
         });
