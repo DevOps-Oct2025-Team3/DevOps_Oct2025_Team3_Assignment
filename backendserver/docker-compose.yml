@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  users:
+    build: ./users
+    container_name: users
+    environment:
+        PORT: 4001
+        MONGODB_URI: ${MONGODB_URI}
+        JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "4001:4001"
+    
+    env_file:
+      - .env
+
+    
