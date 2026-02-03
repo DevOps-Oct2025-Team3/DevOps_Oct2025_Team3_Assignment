@@ -16,8 +16,8 @@ COPY . .
 # Create the uploads folder inside the container
 RUN mkdir -p uploads
 
-# Expose the port (must match the one in server.js)
+# Expose the port (must match the one in app.js)
 EXPOSE 3000
 
 # Command to run the application
-CMD ["node", "server.js"]
+CMD ["node", "backend/app.js"]

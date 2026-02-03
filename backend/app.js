@@ -5,7 +5,11 @@ const path = require("path");
 dotenv.config();
 
 const userController = require("./controllers/userController");
-const { verifyJWT } = require("./middlewares/userValidation");
+const { 
+    validateUser,
+    validateId,
+    verifyJWT 
+} = require("./middlewares/userValidation");
 
 
 const app = express();
@@ -26,8 +30,8 @@ app.get("/logout", (req, res) => {
 
 //routes for admin
 app.get("/admin", verifyJWT, userController.getAllUsers);
-app.post("/admin/create_user", verifyJWT, userController.registerUser);
-app.delete("/admin/delete_user/:id", verifyJWT, userController.deleteUser);
+app.post("/admin/create_user", verifyJWT, validateUser, userController.registerUser);
+app.delete("/admin/delete_user/:id", verifyJWT, validateId, userController.deleteUser);
 
 
 //start server
