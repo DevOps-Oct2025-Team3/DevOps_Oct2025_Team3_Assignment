@@ -12,6 +12,7 @@ const {
     validateId,
     verifyJWT 
 } = require("./middlewares/userValidation.js");
+const connectDB = require('./dbConfig.js');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -22,12 +23,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
-const dbURI = process.env.MONGODB_URI; 
-
-mongoose.connect(dbURI)
-  .then(() => console.log("✅ MongoDB Connected Successfully"))
-  .catch((err) => console.error("❌ MongoDB Connection Error:", err));
-
+connectDB();
 
 // --- Routes ---
 app.post("/login", userController.login); 
