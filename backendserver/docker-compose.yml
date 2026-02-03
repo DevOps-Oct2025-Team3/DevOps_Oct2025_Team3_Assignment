@@ -6,7 +6,7 @@ services:
     container_name: users
     environment:
         PORT: 4001
-        MONGODB_URI: ${MONGODB_URI}
+        MONGO_URI: ${MONGO_URI}
         JWT_SECRET: ${JWT_SECRET}
     ports:
       - "4001:4001"

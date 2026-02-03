@@ -1,6 +1,16 @@
 const User = require("../models/userModel.js");
+const Counter = require("../models/counterModel.js");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+
+async function getNextSequence(sequenceName) {
+    const counter = await Counter.findByIdAndUpdate(
+        { _id: sequenceName },
+        { $inc: { seq: 1 } },
+        { new: true, upsert: true } // Create the counter if it doesn't exist yet
+    );
+    return counter.seq.toString();
+}
 
 async function getAllUsers(req, res) {
     try {
@@ -23,7 +33,10 @@ async function createUser(req, res) {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        const nextId = await getNextSequence("userId");
+
         const newUser = new User({
+            userId: nextId, 
             username,
             passwordHash: hashedPassword,
             role
@@ -37,23 +50,6 @@ async function createUser(req, res) {
         return res.status(201).json(responseUser);
     } catch (error) {
         console.error("Controller error in createUser: ", error);
-        return res.status(500).json({ message: "Internal server error" });
-    }
-}
-
-async function deleteUser(req, res) {
-    const targetUserId = req.params.id; 
-
-    try {
-        const deletedUser = await User.findOneAndDelete({ userId: targetUserId });
-        
-        if (deletedUser) {
-            return res.status(200).json({ message: "User deleted successfully" });
-        } else {
-            return res.status(404).json({ message: "User not found" });
-        }
-    } catch (error) {
-        console.error("Controller error in deleteUser: ", error);
         return res.status(500).json({ message: "Internal server error" });
     }
 }
@@ -83,7 +79,10 @@ async function registerUser(req, res) {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        const nextId = await getNextSequence("userId");
+
         const newUser = new User({
+            userId: nextId,
             username,
             passwordHash: hashedPassword,
             role: role || 'User'
@@ -95,6 +94,23 @@ async function registerUser(req, res) {
 
     } catch (error) {
         console.error("Error in registerUser: ", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+async function deleteUser(req, res) {
+    const targetUserId = req.params.id; 
+
+    try {
+        const deletedUser = await User.findOneAndDelete({ userId: targetUserId });
+        
+        if (deletedUser) {
+            return res.status(200).json({ message: "User deleted successfully" });
+        } else {
+            return res.status(404).json({ message: "User not found" });
+        }
+    } catch (error) {
+        console.error("Controller error in deleteUser: ", error);
         return res.status(500).json({ message: "Internal server error" });
     }
 }

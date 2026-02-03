@@ -1,15 +1,18 @@
-import mongoose from "mongoose";
-import dotenv from "dotenv";
+const mongoose = require("mongoose");
+const dotenv = require("dotenv");
 dotenv.config();
 
-export default async function connectDB() {
+async function connectDB() {
   try {
     await mongoose.connect(process.env.MONGO_URI, {
       dbName: "UserDB"
     });
-    console.log("🟩 Agent Service DB connected");
+    console.log("🟩 UserDB connected");
   } catch (err) {
-    console.error("Agent Service DB error:", err);
+    console.error("UserDB error:", err);
+    process.exit(1);
   }
 }
 
+
+module.exports = connectDB;
