@@ -1,0 +1,72 @@
+name: "DAST - Dynamic Application Scan"
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+permissions:
+  contents: read
+  security-events: write
+  issues: write  
+
+jobs:
+  dast:
+    name: OWASP ZAP Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Start application
+        run: |
+          npm start &        # assumes "npm start" runs your Node app
+          sleep 10           # wait for server to start
+          echo "App running on http://localhost:3000"
+
+      - name: Verify application
+        run: curl -f http://localhost:3000
+
+      - name: Run ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: 'http://localhost:3000'
+          cmd_options: '-a'
+          allow_issue_writing: false
+          artifact_name: 'zap-baseline-scan'
+        continue-on-error: true
+
+      - name: Run ZAP Full Scan
+        uses: zaproxy/action-full-scan@v0.12.0
+        with:
+          target: 'http://localhost:3000'
+          cmd_options: '-a -j'
+          allow_issue_writing: false
+          artifact_name: 'zap-fullscan-scan'
+        continue-on-error: true
+
+      - name: Upload ZAP baseline reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-baseline-reports
+          path: report_html.html
+
+      - name: Upload ZAP fullscan reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-fullscan-reports
+          path: |
+            report_json.json
+            report_md.md
