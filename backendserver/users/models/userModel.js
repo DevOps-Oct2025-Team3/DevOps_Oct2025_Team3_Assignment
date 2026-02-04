@@ -29,13 +29,18 @@ const userSchema = new mongoose.Schema({
 });
 
 // Optional: Cascade delete logic (Simulating ON DELETE CASCADE)
-// This hook deletes all files associated with a user when the user is deleted
-userSchema.pre('findOneAndDelete', async function (next) {
-  const doc = await this.model.findOne(this.getQuery());
-  if (doc) {
-    await mongoose.model('Files').deleteMany({ user: doc._id });
-  }
-  next();
-});
+// Commented out until Files model is implemented
+// userSchema.pre('findOneAndDelete', async function (next) {
+//   try {
+//     const doc = await this.model.findOne(this.getQuery());
+//     if (doc) {
+//       await mongoose.model('Files').deleteMany({ user: doc._id });
+//     }
+//     next();
+//   } catch (error) {
+//     console.error('Error in pre-delete hook:', error);
+//     next(error);
+//   }
+// });
 
 module.exports = mongoose.model('users', userSchema);
