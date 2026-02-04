@@ -38,14 +38,16 @@ jobs:
 
       - name: Start application
         run: |
-          npm start > app.log 2>&1 &
-          sleep 10
+          # Start the app in the background
+          node backendserver/users/app.js > app.log 2>&1 &
+          # Wait for the app to start
+          sleep 15
           echo "==== Application Logs ===="
           cat app.log
 
       - name: Verify application is running
         run: |
-          curl -f http://localhost:3000 || exit 1
+          curl -f http://localhost:3000 || (echo "❌ App not reachable, logs:" && cat app.log && exit 1)
           echo "✅ Application is reachable"
 
       - name: ZAP Baseline Scan
