@@ -1,69 +1,75 @@
-name: "DAST - OWASP ZAP Scan"
+
+name: 3. DAST - Live Application Scan
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ main, master ]
 
 permissions:
   contents: read
   security-events: write
-  issues: write
+  issues: write  
 
 jobs:
   dast:
-    name: OWASP ZAP Dynamic Scan
+    name: OWASP ZAP Scan (DAST)
     runs-on: ubuntu-latest
     services:
       mongodb:
         image: mongo:latest
         ports:
           - 27017:27017
-
+    
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v4
-
+      
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-
+      
       - name: Install dependencies
         run: npm install
-
+      
       - name: Set environment variables
         run: |
           echo "PORT=3000" >> $GITHUB_ENV
           echo "JWT_SECRET=testsecret" >> $GITHUB_ENV
           echo "NODE_ENV=ci" >> $GITHUB_ENV
           echo "MONGO_URI=mongodb://localhost:27017/test" >> $GITHUB_ENV
-
-      - name: Start application
+      
+      - name: Start Node.js application
         run: |
+          # Wait for MongoDB to be ready
+          timeout 60 bash -c 'until nc -z localhost 27017; do sleep 2; done'
           # Start the app in the background
           node backendserver/users/app.js > app.log 2>&1 &
-          # Wait for the app to start
-          sleep 15
+          # Wait for app to start
+          sleep 20
+          echo "Application started on http://localhost:3000"
           echo "==== Application Logs ===="
           cat app.log
-
+      
       - name: Verify application is running
         run: |
-          curl -f http://localhost:3000 || (echo "❌ App not reachable, logs:" && cat app.log && exit 1)
-          echo "✅ Application is reachable"
-
+          # Try multiple endpoints to verify app is running
+          curl -f http://localhost:3000/ || 
+          curl -f http://localhost:3000/logout || 
+          (echo "❌ App not reachable, logs:" && cat app.log && exit 1)
+          echo "Application is responding"
+      
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.14.0
         with:
           target: 'http://localhost:3000'
           cmd_options: '-a'
           allow_issue_writing: false
-          artifact_name: 'zap-baseline-scan'
+          artifact_name: 'zap-baseline-scan'  
         continue-on-error: true
-
+      
       - name: Upload ZAP baseline reports
         uses: actions/upload-artifact@v4
         if: always()
@@ -73,17 +79,17 @@ jobs:
             report_html.html
             report_json.json
             report_md.md
-
+      
       - name: ZAP Full Scan
         uses: zaproxy/action-full-scan@v0.12.0
         with:
           target: 'http://localhost:3000'
           cmd_options: '-a -j'
           allow_issue_writing: false
-          artifact_name: 'zap-fullscan-scan'
+          artifact_name: 'zap-fullscan-scan'  
         continue-on-error: true
-
-      - name: Upload ZAP full scan reports
+      
+      - name: Upload ZAP fullscan reports
         uses: actions/upload-artifact@v4
         if: always()
         with:
