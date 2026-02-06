@@ -3,6 +3,24 @@ let userRole = localStorage.getItem('role');
 
 const API_BASE = 'http://localhost:4001'; 
 
+// --- HELPER: Check for token expiration ---
+function handleTokenExpiration(response) {
+    if (response.status === 401 || response.status === 403) {
+        // Token is invalid or expired
+        localStorage.clear();
+        token = null;
+        userRole = null;
+        if (views.login) {
+            showView('login');
+            showAlert('Session expired. Please login again.', 'warning');
+        } else {
+            window.location.href = 'index.html';
+        }
+        return true;
+    }
+    return false;
+}
+
 // --- DOM ELEMENTS ---
 // We use 'try/catch' or simple null checks later to prevent crashes
 const views = {
@@ -13,6 +31,7 @@ const views = {
 
 const navLogout = document.getElementById('logoutBtn');
 const alertBox = document.getElementById('alertBox'); // Used in index.html
+const dashboardAlert = document.getElementById('dashboardAlert'); // Used in dashboard
 const registerAlert = document.getElementById('registerAlert'); // Used in register.html
 
 // --- INIT LOGIC ---
@@ -46,21 +65,28 @@ function parseJwt(token) {
 }
 
 function showView(viewName) {
-    if (!views[viewName]) return; // Guard clause
-
-    // Hide all views
-    Object.values(views).forEach(el => {
-        if (el) el.classList.add('hidden');
-    });
-
-    if (navLogout) navLogout.classList.add('hidden');
-    if (alertBox) alertBox.classList.add('hidden');
-
-    // Show requested view
-    views[viewName].classList.remove('hidden');
-
-    if (viewName !== 'login' && navLogout) {
-        navLogout.classList.remove('hidden');
+    const loginView = document.getElementById('loginView');
+    const navbar = document.getElementById('navbar');
+    const dashboardContainer = document.getElementById('dashboardContainer');
+    const body = document.body;
+    
+    if (viewName === 'login') {
+        if (loginView) loginView.classList.remove('hidden');
+        if (navbar) navbar.classList.add('hidden');
+        if (dashboardContainer) dashboardContainer.classList.add('hidden');
+        body.className = 'login-page';
+    } else {
+        if (loginView) loginView.classList.add('hidden');
+        if (navbar) navbar.classList.remove('hidden');
+        if (dashboardContainer) dashboardContainer.classList.remove('hidden');
+        body.className = 'dashboard-page';
+        
+        // For legacy views object
+        if (!views[viewName]) return;
+        Object.values(views).forEach(el => {
+            if (el) el.classList.add('hidden');
+        });
+        if (views[viewName]) views[viewName].classList.remove('hidden');
     }
 }
 
@@ -77,7 +103,7 @@ function showDashboard(role) {
 // Global Alert Helper (Handles both index.html and register.html alerts)
 function showAlert(msg, type = 'danger', targetElement = null) {
     // If a specific target is passed, use it. Otherwise default to the main alertBox.
-    const el = targetElement || alertBox || registerAlert;
+    const el = targetElement || dashboardAlert || alertBox || registerAlert;
     
     if (el) {
         el.textContent = msg;
@@ -91,12 +117,13 @@ function showAlert(msg, type = 'danger', targetElement = null) {
         }, 3000);
     } else {
         console.warn("Alert element not found for message:", msg);
+        console.log("Message:", msg); // Fallback to console
     }
 }
 
 // --- EVENT LISTENERS (WRAPPED IN CHECKS) ---
 
-// 1. LOGIN FORM
+// LOGIN FORM
 const loginForm = document.getElementById('loginForm');
 if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
@@ -130,7 +157,17 @@ if (loginForm) {
     });
 }
 
-// 2. LOGOUT BUTTON
+// LOGOUT BUTTON
+const logoutLink = document.getElementById('logoutLink');
+if (logoutLink) {
+    logoutLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        localStorage.clear();
+        token = null;
+        userRole = null;
+        showView('login');
+    });
+}
 if (navLogout) {
     navLogout.addEventListener('click', () => {
         localStorage.clear();
@@ -140,37 +177,7 @@ if (navLogout) {
     });
 }
 
-// 3. REGISTER FORM (For register.html)
-const registerForm = document.getElementById('registerForm');
-if (registerForm) {
-    registerForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const username = document.getElementById('regUsername').value;
-        const password = document.getElementById('regPassword').value;
-
-        try {
-            const response = await fetch(`${API_BASE}/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password, role: 'User' })
-            });
-
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Registration failed');
-
-            showAlert('Account created! Redirecting...', 'success', registerAlert);
-            
-            setTimeout(() => {
-                window.location.href = 'index.html';
-            }, 2000);
-
-        } catch (err) {
-            showAlert(err.message, 'danger', registerAlert);
-        }
-    });
-}
-
-// 4. CREATE USER FORM (Admin Dashboard)
+// CREATE USER FORM (Admin Dashboard)
 const createUserForm = document.getElementById('createUserForm');
 if (createUserForm) {
     createUserForm.addEventListener('submit', async (e) => {
@@ -180,7 +187,7 @@ if (createUserForm) {
         const role = document.getElementById('newRole').value;
 
         try {
-            await fetch(`${API_BASE}/admin/create_user`, {
+            const response = await fetch(`${API_BASE}/admin/create_user`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -188,16 +195,27 @@ if (createUserForm) {
                 },
                 body: JSON.stringify({ username, password, role })
             });
+
+            if (handleTokenExpiration(response)) return;
+
+            const data = await response.json();
+            
+            if (!response.ok) {
+                showAlert(data.message || data.error || 'Failed to create user', 'danger');
+                return; // Stop execution if there's an error
+            }
+
             loadUsers(); 
             e.target.reset();
-            showAlert('User created', 'success');
+            showAlert('User created successfully', 'success');
         } catch (err) {
-            showAlert('Failed to create user');
+            console.error('Create user error:', err);
+            showAlert(err.message || 'Failed to create user', 'danger');
         }
     });
 }
 
-// 5. UPLOAD FORM (User Dashboard)
+// UPLOAD FORM (User Dashboard)
 const uploadForm = document.getElementById('uploadForm');
 if (uploadForm) {
     uploadForm.addEventListener('submit', async (e) => {
@@ -206,11 +224,14 @@ if (uploadForm) {
         formData.append('file', document.getElementById('fileInput').files[0]);
 
         try {
-            await fetch(`${API_BASE}/files`, {
+            const response = await fetch(`${API_BASE}/files`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
                 body: formData
             });
+            
+            if (handleTokenExpiration(response)) return;
+            
             loadFiles();
             e.target.reset();
             showAlert('File uploaded', 'success');
@@ -231,6 +252,9 @@ async function loadUsers() {
         const res = await fetch(`${API_BASE}/admin`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+        
+        if (handleTokenExpiration(res)) return;
+        
         const users = await res.json();
         
         tbody.innerHTML = '';
@@ -260,6 +284,9 @@ async function loadFiles() {
         const res = await fetch(`${API_BASE}/files`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+        
+        if (handleTokenExpiration(res)) return;
+        
         const files = await res.json();
         
         tbody.innerHTML = '';
@@ -286,23 +313,38 @@ async function loadFiles() {
 window.deleteUser = async (id) => {
     if(!confirm("Are you sure?")) return;
     try {
-        await fetch(`${API_BASE}/admin/delete_user/${id}`, {
+        const response = await fetch(`${API_BASE}/admin/delete_user/${id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
         });
+        
+        if (handleTokenExpiration(response)) return;
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            showAlert(data.message || 'Failed to delete user', 'danger');
+            return;
+        }
+        
+        showAlert('User deleted successfully', 'success');
         loadUsers();
     } catch (err) {
-        showAlert('Failed to delete user');
+        console.error('Delete user error:', err);
+        showAlert('Failed to delete user', 'danger');
     }
 };
 
 window.deleteFile = async (id) => {
     if(!confirm("Delete this file?")) return;
     try {
-        await fetch(`${API_BASE}/files/${id}`, {
+        const response = await fetch(`${API_BASE}/files/${id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
         });
+        
+        if (handleTokenExpiration(response)) return;
+        
         loadFiles();
     } catch (err) {
         showAlert('Failed to delete file');

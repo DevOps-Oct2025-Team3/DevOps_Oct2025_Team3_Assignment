@@ -26,6 +26,12 @@ async function createUser(req, res) {
     try {
         const { username, password, role } = req.body;
 
+        // Validate password complexity
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/;
+        if (!passwordRegex.test(password)) {
+            return res.status(400).json({ message: "Password has to be at least 8 characters long, include one uppercase letter, one lowercase letter, and one number." });
+        }
+
         const existingUser = await User.findOne({ username });
         if (existingUser) {
             return res.status(400).json({ message: "Username already exists" });
@@ -64,7 +70,7 @@ async function registerUser(req, res) {
 
         const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/;
         if (!passwordRegex.test(password)) {
-            return res.status(400).json({ message: "Password does not meet complexity requirements." });
+            return res.status(400).json({ message: "Password has to be at least 8 characters long, include one uppercase letter, one lowercase letter, and one number." });
         }
 
         const validRoles = ["Admin", "User"];
