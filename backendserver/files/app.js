@@ -3,6 +3,8 @@ const mongoose = require('mongoose');
 const dotenv = require("dotenv");
 const path = require("path");
 const cors = require("cors"); 
+const fs = require('fs');
+const multer = require('multer');
 
 dotenv.config();
 
@@ -17,14 +19,34 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
-const authenticateToken = require("./middleware/auth");
+const { verifyJWT: authenticateToken } = require("./middlewares/userValidation.js");
 connectDB();
 
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+try {
+    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+} catch (err) {
+    console.error('Failed to create uploads directory:', err);
+}
+
+// Multer setup: store files inside the service under ./uploads
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, uploadsDir);
+    },
+    filename: function (req, file, cb) {
+        // keep original name (could also add timestamp/uid here)
+        cb(null, Date.now() + '-' + file.originalname);
+    }
+});
+const upload = multer({ storage });
+
 // Routes
-app.get("/", authenticateToken, fileController.getAllFiles);
-app.post("/", authenticateToken,fileController.uploadFile);
-app.delete("/:id", authenticateToken, fileController.deleteFile);
-app.get("/:id/download", authenticateToken, fileController.downloadFile);
+app.get("/dashboard", authenticateToken, fileController.getAllFiles);
+app.post("/dashboard/upload", authenticateToken, upload.single('file'), fileController.uploadFile);
+app.delete("/dashboard/delete/:id", authenticateToken, fileController.deleteFile);
+app.get("/dashboard/download/:id", authenticateToken, fileController.downloadFile);
 
 // Server
 app.listen(port, () => {

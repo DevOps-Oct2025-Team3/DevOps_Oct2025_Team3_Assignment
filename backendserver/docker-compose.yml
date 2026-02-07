@@ -34,6 +34,7 @@ services:
     environment:
         PORT: 4002
         MONGO_URI: ${MONGO_URI}
+        JWT_SECRET: ${JWT_SECRET}
     ports:
       - "4002:4002"
     

@@ -7,15 +7,14 @@ dotenv.config();
 const app = express();
 
 app.use(cors());
-// app.use(express.json());
-
+//app.use(express.json());
 
 // Load Proxy Routes
 routes(app);
 
 // Expose a simple health route and log the proxy targets on startup for debugging
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", FILE_SERVICE: process.env.FILE_SERVICE, USER_SERVICE: process.env.USER_SERVICE });
+  res.json({ status: "ok", FILES_SERVICE_URL: process.env.FILES_SERVICE_URL || process.env.FILE_SERVICE, USERS_SERVICE_URL: process.env.USERS_SERVICE_URL || process.env.USER_SERVICE });
 });
 
 app.get("*", (req, res) => {
@@ -25,8 +24,8 @@ app.get("*", (req, res) => {
 
 
 console.log("API Gateway targets:", {
-  FILES: process.env.FILE_SERVICE,
-USERS: process.env.USER_SERVICE
+  FILES: process.env.FILES_SERVICE_URL || process.env.FILE_SERVICE,
+USERS: process.env.USERS_SERVICE_URL || process.env.USER_SERVICE
 });
 
 

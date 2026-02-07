@@ -36,16 +36,29 @@ const registerAlert = document.getElementById('registerAlert');
 
 // --- INIT LOGIC ---
 function init() {
-    if (views.login) {
-        if (token) {
-            if (!userRole) {
-                const decoded = parseJwt(token);
-                if (decoded) userRole = decoded.role;
-            }
-            showDashboard(userRole);
-        } else {
-            showView('login');
+    // If a token exists, show the appropriate dashboard regardless
+    // of whether the login view exists on the current page.
+    if (token) {
+        if (!userRole) {
+            const decoded = parseJwt(token);
+            if (decoded) userRole = decoded.role;
         }
+        showDashboard(userRole);
+        return;
+    }
+
+    // No token: if the login view is present on this page, show it.
+    if (views.login) {
+        showView('login');
+        return;
+    }
+
+    // No login view and no token: navigate back to the main login page.
+    // This ensures standalone dashboard pages redirect to login when unauthenticated.
+    try {
+        window.location.href = 'index.html';
+    } catch (e) {
+        /* noop in non-browser environments */
     }
 }
 
@@ -221,7 +234,7 @@ if (uploadForm) {
 
         try {
             // FIXED: Changed files/files to just /files
-            const response = await fetch(`${API_BASE}/files`, {
+            const response = await fetch(`${API_BASE}/files/dashboard/upload`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
                 body: formData
@@ -278,7 +291,7 @@ async function loadFiles() {
 
     try {
         // FIXED: Changed files/files to just /files
-        const res = await fetch(`${API_BASE}/files`, {
+        const res = await fetch(`${API_BASE}/files/dashboard`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -295,7 +308,7 @@ async function loadFiles() {
                     <td>${f.fileSize}</td>
                     <td>${new Date(f.uploadedAt).toLocaleDateString()}</td>
                     <td>
-                        <a href="${API_BASE}/files/${f._id}/download" class="btn btn-sm btn-primary">Download</a>
+                        <a href="${API_BASE}/files/dashboard/download/${f._id}" class="btn btn-sm btn-primary">Download</a>
                         <button onclick="deleteFile('${f._id}')" class="btn btn-sm btn-danger">Delete</button>
                     </td>
                 </tr>
@@ -337,7 +350,7 @@ window.deleteFile = async (id) => {
     if(!confirm("Delete this file?")) return;
     try {
         // FIXED: Changed files/files to just /files
-        const response = await fetch(`${API_BASE}/files/${id}`, {
+        const response = await fetch(`${API_BASE}/files/dashboard/delete/${id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
         });
