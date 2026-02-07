@@ -304,9 +304,9 @@ async function loadFiles() {
             // FIXED: Download link also uses single /files
             tbody.innerHTML += `
                 <tr>
-                    <td>${f.fileName}</td>
-                    <td>${f.fileSize}</td>
-                    <td>${new Date(f.uploadedAt).toLocaleDateString()}</td>
+                    <td>${f.FileName}</td>
+                    <td>${f.FileSize}</td>
+                    <td>${new Date(f.UploadedAt).toLocaleDateString()}</td>
                     <td>
                         <a href="${API_BASE}/files/dashboard/download/${f._id}" class="btn btn-sm btn-primary">Download</a>
                         <button onclick="deleteFile('${f._id}')" class="btn btn-sm btn-danger">Delete</button>
