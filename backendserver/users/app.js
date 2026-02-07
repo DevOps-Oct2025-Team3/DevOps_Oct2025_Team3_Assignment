@@ -13,10 +13,8 @@ const {
     verifyJWT 
 } = require("./middlewares/userValidation.js");
 const connectDB = require('./dbConfig.js');
-const fileController = require("./controllers/fileController.js");
-
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 4001;
 
 // Middleware
 app.use(cors()); 
@@ -34,10 +32,7 @@ app.get("/admin", verifyJWT, userController.getAllUsers);
 app.post("/admin/create_user", verifyJWT, validateUser, userController.createUser);
 app.delete("/admin/delete_user/:id", verifyJWT, validateId, userController.deleteUser);
 
-app.get("/dashboard", fileController.getAllFiles);
-app.post("/dashboard/upload", fileController.uploadFile);
-app.delete("/dashboard/delete/:id", fileController.deleteFile);
-app.get("/dashboard/download/:id", fileController.downloadFile);
+
 
 // --- Server Start ---
 app.listen(port, () => {
