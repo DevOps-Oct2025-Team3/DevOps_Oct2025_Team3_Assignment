@@ -65,13 +65,9 @@ function verifyJWT(req, res, next) {
             "GET /login": ["Admin", "User"],
             "GET /logout": ["Admin", "User"],
             
-            // NOTE: Ensure these paths match your actual Express routes!
             // Admin
             "GET /admin": ["Admin"],             
             "POST /admin/create_user": ["Admin"], 
-            
-            // Regex for Numeric IDs (Matches your Auto-Increment setup)
-            // This expects: /admin/delete_user/123
             "DELETE /admin/delete_user/[0-9]+": ["Admin"], 
         };
 
