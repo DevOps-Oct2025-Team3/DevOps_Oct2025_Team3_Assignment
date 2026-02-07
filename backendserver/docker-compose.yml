@@ -1,6 +1,20 @@
 version: '3.8'
 
 services:
+  gateway:
+    build: ./gateway
+    container_name: gateway
+    environment:
+        PORT: 3000
+        USERS_SERVICE_URL: http://users:4001
+        FILES_SERVICE_URL: http://files:4002
+    ports:
+      - "3000:3000"
+    
+    depends_on:
+      - users
+      - files
+
   users:
     build: ./users
     container_name: users
@@ -14,4 +28,14 @@ services:
     env_file:
       - .env
 
+  files:
+    build: ./files
+    container_name: files
+    environment:
+        PORT: 4002
+        MONGO_URI: ${MONGO_URI}
+    ports:
+      - "4002:4002"
     
+    env_file:
+      - .env

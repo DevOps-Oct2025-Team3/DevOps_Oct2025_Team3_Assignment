@@ -1,7 +1,8 @@
+// 1. DEFINE API GATEWAY URL
+const API_BASE = 'http://localhost:3000'; 
+
 let token = localStorage.getItem('token');
 let userRole = localStorage.getItem('role');
-
-const API_BASE = 'http://localhost:4001'; 
 
 // --- HELPER: Check for token expiration ---
 function handleTokenExpiration(response) {
@@ -22,7 +23,6 @@ function handleTokenExpiration(response) {
 }
 
 // --- DOM ELEMENTS ---
-// We use 'try/catch' or simple null checks later to prevent crashes
 const views = {
     login: document.getElementById('loginView'),
     admin: document.getElementById('adminView'),
@@ -30,13 +30,12 @@ const views = {
 };
 
 const navLogout = document.getElementById('logoutBtn');
-const alertBox = document.getElementById('alertBox'); // Used in index.html
-const dashboardAlert = document.getElementById('dashboardAlert'); // Used in dashboard
-const registerAlert = document.getElementById('registerAlert'); // Used in register.html
+const alertBox = document.getElementById('alertBox'); 
+const dashboardAlert = document.getElementById('dashboardAlert'); 
+const registerAlert = document.getElementById('registerAlert'); 
 
 // --- INIT LOGIC ---
 function init() {
-    // Only run dashboard logic if we are on index.html (where views.login exists)
     if (views.login) {
         if (token) {
             if (!userRole) {
@@ -81,7 +80,6 @@ function showView(viewName) {
         if (dashboardContainer) dashboardContainer.classList.remove('hidden');
         body.className = 'dashboard-page';
         
-        // For legacy views object
         if (!views[viewName]) return;
         Object.values(views).forEach(el => {
             if (el) el.classList.add('hidden');
@@ -100,16 +98,14 @@ function showDashboard(role) {
     }
 }
 
-// Global Alert Helper (Handles both index.html and register.html alerts)
 function showAlert(msg, type = 'danger', targetElement = null) {
-    // If a specific target is passed, use it. Otherwise default to the main alertBox.
     const el = targetElement || dashboardAlert || alertBox || registerAlert;
     
     if (el) {
         el.textContent = msg;
         el.className = `alert alert-${type}`;
         el.classList.remove('hidden');
-        el.style.display = 'block'; // Ensure it's visible if using style='display:none'
+        el.style.display = 'block'; 
         
         setTimeout(() => {
             el.classList.add('hidden');
@@ -117,11 +113,10 @@ function showAlert(msg, type = 'danger', targetElement = null) {
         }, 3000);
     } else {
         console.warn("Alert element not found for message:", msg);
-        console.log("Message:", msg); // Fallback to console
     }
 }
 
-// --- EVENT LISTENERS (WRAPPED IN CHECKS) ---
+// --- EVENT LISTENERS ---
 
 // LOGIN FORM
 const loginForm = document.getElementById('loginForm');
@@ -132,7 +127,8 @@ if (loginForm) {
         const password = document.getElementById('password').value;
 
         try {
-            const response = await fetch(`${API_BASE}/login`, {
+            // User paths remain the same
+            const response = await fetch(`${API_BASE}/users/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password }) 
@@ -187,7 +183,7 @@ if (createUserForm) {
         const role = document.getElementById('newRole').value;
 
         try {
-            const response = await fetch(`${API_BASE}/admin/create_user`, {
+            const response = await fetch(`${API_BASE}/users/admin/create_user`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -202,7 +198,7 @@ if (createUserForm) {
             
             if (!response.ok) {
                 showAlert(data.message || data.error || 'Failed to create user', 'danger');
-                return; // Stop execution if there's an error
+                return; 
             }
 
             loadUsers(); 
@@ -224,6 +220,7 @@ if (uploadForm) {
         formData.append('file', document.getElementById('fileInput').files[0]);
 
         try {
+            // FIXED: Changed files/files to just /files
             const response = await fetch(`${API_BASE}/files`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
@@ -244,12 +241,11 @@ if (uploadForm) {
 // --- DATA LOADERS ---
 
 async function loadUsers() {
-    // Safety check: Don't load if table doesn't exist
     const tbody = document.getElementById('userTableBody');
     if (!tbody) return;
 
     try {
-        const res = await fetch(`${API_BASE}/admin`, {
+        const res = await fetch(`${API_BASE}/users/admin`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -281,6 +277,7 @@ async function loadFiles() {
     if (!tbody) return;
 
     try {
+        // FIXED: Changed files/files to just /files
         const res = await fetch(`${API_BASE}/files`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -291,6 +288,7 @@ async function loadFiles() {
         
         tbody.innerHTML = '';
         files.forEach(f => {
+            // FIXED: Download link also uses single /files
             tbody.innerHTML += `
                 <tr>
                     <td>${f.fileName}</td>
@@ -308,12 +306,12 @@ async function loadFiles() {
     }
 }
 
-// --- GLOBAL ACTIONS (Attached to Window for HTML onclick attributes) ---
+// --- GLOBAL ACTIONS ---
 
 window.deleteUser = async (id) => {
     if(!confirm("Are you sure?")) return;
     try {
-        const response = await fetch(`${API_BASE}/admin/delete_user/${id}`, {
+        const response = await fetch(`${API_BASE}/users/admin/delete_user/${id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -338,6 +336,7 @@ window.deleteUser = async (id) => {
 window.deleteFile = async (id) => {
     if(!confirm("Delete this file?")) return;
     try {
+        // FIXED: Changed files/files to just /files
         const response = await fetch(`${API_BASE}/files/${id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
