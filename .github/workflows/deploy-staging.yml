@@ -31,9 +31,10 @@ jobs:
       - name: Pull Docker images
         run: |
           echo "📦 Pulling Staging images..."
-          docker pull ghcr.io/${{ github.repository }}-users:latest
-          docker pull ghcr.io/${{ github.repository }}-gateway:latest
-          docker pull ghcr.io/${{ github.repository }}-files:latest
+          REPO_LC=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')
+          docker pull ghcr.io/${REPO_LC}-users:latest
+          docker pull ghcr.io/${REPO_LC}-gateway:latest
+          docker pull ghcr.io/${REPO_LC}-files:latest
           echo "✅ Images pulled successfully"
 
       - name: Start Services
