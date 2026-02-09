@@ -1,0 +1,83 @@
+name: Build & Test
+
+#Run on pushes to the develop branch only.
+on:
+  push:
+    branches: [develop]
+
+#Needed to create a draft release/tag.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    #Expose the generated RC version for downstream jobs (if added later).
+    outputs:
+      rc_version: ${{ steps.version.outputs.rc_version }}
+
+    steps:
+      #Get repository source.
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      #Install the Node.js runtime for tests.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      #Clean install for the users service (uses package-lock.json).
+      - name: Install dependencies (users service)
+        working-directory: backendserver/users
+        run: npm ci
+
+      #Clean install for the files service.
+      - name: Install dependencies (files service)
+        working-directory: backendserver/files
+        run: npm ci
+
+      #Execute unit/integration tests for users service.
+      - name: Run tests (users service)
+        working-directory: backendserver/users
+        run: npm test
+
+      #Execute unit/integration tests for files service.
+      - name: Run tests (files service)
+        working-directory: backendserver/files
+        run: npm test
+
+      #Create a unique RC tag using timestamp + short SHA.
+      - name: Generate Version
+        id: version
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          RC_VERSION="v0.0.0-rc.${TIMESTAMP}.${SHORT_SHA}"
+          echo "rc_version=${RC_VERSION}" >> $GITHUB_OUTPUT
+          echo "RC Version: ${RC_VERSION}"
+
+      #Store coverage artifacts for 7 days.
+      - name: Upload Test Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-${{ steps.version.outputs.rc_version }}
+          path: |
+            backendserver/users/coverage
+            backendserver/files/coverage
+          retention-days: 7
+
+      #Create a draft release so the team can review before publishing.
+      - name: Create Draft Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.rc_version }}
+          draft: true
+          body: |
+            # Release Candidate
+            **Version:** ${{ steps.version.outputs.rc_version }}
+            **Status:** Waiting for team approval
+            **To Approve:** Edit → Publish release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
