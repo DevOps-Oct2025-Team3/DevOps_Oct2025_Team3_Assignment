@@ -301,14 +301,13 @@ async function loadFiles() {
         
         tbody.innerHTML = '';
         files.forEach(f => {
-            // FIXED: Download link also uses single /files
             tbody.innerHTML += `
                 <tr>
                     <td>${f.FileName}</td>
                     <td>${f.FileSize}</td>
                     <td>${new Date(f.UploadedAt).toLocaleDateString()}</td>
                     <td>
-                        <a href="${API_BASE}/files/dashboard/download/${f._id}" class="btn btn-sm btn-primary">Download</a>
+                        <button onclick="downloadFile('${f._id}')" class="btn btn-sm btn-primary">Download</button>
                         <button onclick="deleteFile('${f._id}')" class="btn btn-sm btn-danger">Delete</button>
                     </td>
                 </tr>
@@ -360,6 +359,43 @@ window.deleteFile = async (id) => {
         loadFiles();
     } catch (err) {
         showAlert('Failed to delete file');
+    }
+};
+
+window.downloadFile = async (id) => {
+    try {
+        const response = await fetch(`${API_BASE}/files/dashboard/download/${id}`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (handleTokenExpiration(response)) return;
+
+        if (!response.ok) {
+            showAlert('Download failed');
+            return;
+        }
+
+        const type = response.headers.get('content-type') || 'application/octet-stream';
+        const disposition = response.headers.get('content-disposition') || '';
+        const match = disposition.match(/filename="?([^";]+)"?/i);
+        const filename = match ? match[1] : 'download';
+
+        const data = await response.arrayBuffer();
+        const blob = new Blob([data], { type: type });
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.style.display = 'none';
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        showAlert('Download failed');
     }
 };
 

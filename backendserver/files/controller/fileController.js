@@ -1,4 +1,6 @@
 const File = require("../model/fileModel");
+const fs = require("fs");
+const path = require("path");
 
 /**
  * GET /
@@ -75,23 +77,27 @@ async function deleteFile(req, res) {
  * (for now returns metadata – can stream file later)
  */
 async function downloadFile(req, res) {
-    try {
-        const file = await File.findById(req.params.id);
+        try {
+                const file = await File.findById(req.params.id);
 
-        if (!file) {
-            return res.status(404).json({ message: "File not found" });
+                if (!file) {
+                        return res.status(404).json({ message: "File not found" });
+                }
+
+                if (file.UserId !== req.user.userId && req.user.role !== "Admin") {
+                        return res.status(403).json({ message: "Access denied" });
+                }
+
+                const filePath = path.resolve(file.FilePath);
+                if (!fs.existsSync(filePath)) {
+                        return res.status(404).json({ message: "File not found on disk" });
+                }
+
+                return res.download(filePath, file.FileName);
+        } catch (error) {
+                console.error("Controller error in downloadFile:", error);
+                return res.status(500).json({ message: "Internal server error" });
         }
-
-        if (file.UserId !== req.user.userId && req.user.role !== "Admin") {
-            return res.status(403).json({ message: "Access denied" });
-        }
-
-        return res.status(200).json(file);
-
-    } catch (error) {
-        console.error("Controller error in downloadFile:", error);
-        return res.status(500).json({ message: "Internal server error" });
-    }
 }
 
 module.exports = {
