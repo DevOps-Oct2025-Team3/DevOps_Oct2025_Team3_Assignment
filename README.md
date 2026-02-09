@@ -76,7 +76,7 @@ cd backendserver/users
 npm test
 ```
 
-Expected output: **71 tests passing** ✅
+Expected output: **82 tests passing** ✅
 
 **Quick Test Commands:**
 ```bash
@@ -85,11 +85,12 @@ npm run test:coverage    # Run tests with coverage report
 ```
 
 **Test Coverage Status:**
-- ✅ **71 tests passing** - all tests green!
+- ✅ **82 tests passing** - all tests green!
   - 31 unit tests (user controller + user model)
   - 30 middleware validation tests (userValidation + JWT verification)
   - 16 security tests (SQL injection, password hashing, JWT, RBAC, brute force)
   - 7 integration tests (end-to-end API testing with MongoDB Memory Server)
+  - 11 rate limiting tests (login, create user, API limits)
 - ✅ **100% Code Coverage**
   - Controllers: 100% statements, 100% branches, 100% functions, 100% lines
   - Models: 100% statements, 100% branches, 100% functions, 100% lines
@@ -146,6 +147,32 @@ python -m http.server 8080
 - **Admin Account**: Create via API or database
   - Username: `admin`
   - Password: Must meet criteria (8+ chars, 1 uppercase, 1 lowercase, 1 number)
+
+### Security Features
+
+#### Rate Limiting Protection
+The application includes comprehensive rate limiting to prevent abuse:
+
+**Login Endpoint** (`POST /login`)
+- **Limit**: 5 attempts per 15 minutes per IP
+- **Purpose**: Prevents brute force password attacks
+- **Response**: `429 Too Many Requests` after limit exceeded
+
+**User Creation** (`POST /admin/create_user`)
+- **Limit**: 10 requests per hour per IP
+- **Purpose**: Prevents spam account creation
+- **Response**: Custom error message
+
+**General API**
+- **Limit**: 100 requests per 15 minutes per IP
+- **Purpose**: Prevents DoS/DDoS attacks and resource exhaustion
+- **Headers**: Includes `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`
+
+**Implementation**: Built with `express-rate-limit` middleware
+- Applies to ALL requests (both successful and failed)
+- Per-IP tracking
+- Standard HTTP 429 status codes
+- Includes retry-after information
 
 ---
 

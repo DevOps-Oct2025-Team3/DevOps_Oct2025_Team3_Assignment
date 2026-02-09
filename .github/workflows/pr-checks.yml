@@ -165,7 +165,7 @@ jobs:
       - name: Start Services
         run: |
           echo "🚀 Starting test services for PR #${{ github.event.pull_request.number }}..."
-          docker compose up -d --build
+          docker compose -f backendserver/docker-compose.yml up -d --build
           echo "⏳ Waiting for services to be ready..."
           sleep 30
 
@@ -175,13 +175,13 @@ jobs:
           
           # Check if services are responding
           echo "Checking users service..."
-          curl -f http://localhost:3000/health || curl -f http://localhost:3000/ || echo "Users service check"
+          curl -f http://localhost:4001/health || curl -f http://localhost:4001/ || echo "Users service check"
           
           echo "Checking gateway service..."
-          curl -f http://localhost:8080/health || curl -f http://localhost:8080/ || echo "Gateway service check"
+          curl -f http://localhost:3000/health || curl -f http://localhost:3000/ || echo "Gateway service check"
           
           echo "Checking files service..."
-          curl -f http://localhost:3001/health || curl -f http://localhost:3001/ || echo "Files service check"
+          curl -f http://localhost:4002/health || curl -f http://localhost:4002/ || echo "Files service check"
           
           echo "✅ Health checks completed"
 

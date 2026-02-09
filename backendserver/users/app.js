@@ -12,6 +12,11 @@ const {
     validateId,
     verifyJWT 
 } = require("./middlewares/userValidation.js");
+const { 
+    loginLimiter, 
+    createUserLimiter, 
+    apiLimiter 
+} = require("./middlewares/rateLimiter.js");
 const connectDB = require('./dbConfig.js');
 const app = express();
 const port = process.env.PORT || 4001;
@@ -22,13 +27,16 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
+// Apply general API rate limiting to all routes
+app.use(apiLimiter);
+
 connectDB();
 
 // --- Routes ---
-app.post("/login", userController.login); 
+app.post("/login", loginLimiter, userController.login); 
 app.get("/logout", (req, res) => {return res.status(200).json({ message: "Logged out successfully" });});
 app.get("/admin", verifyJWT, userController.getAllUsers);
-app.post("/admin/create_user", verifyJWT, validateUser, userController.createUser);
+app.post("/admin/create_user", verifyJWT, createUserLimiter, validateUser, userController.createUser);
 app.delete("/admin/delete_user/:id", verifyJWT, validateId, userController.deleteUser);
 
 
