@@ -162,6 +162,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Create environment file
+        run: |
+          cat > backendserver/.env << EOF
+          PORT=3000
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          NODE_ENV=production
+          MONGODB_URI=${{ secrets.MONGODB_URI }}
+          EOF
+
       - name: Start Services
         run: |
           echo "🚀 Starting test services for PR #${{ github.event.pull_request.number }}..."
