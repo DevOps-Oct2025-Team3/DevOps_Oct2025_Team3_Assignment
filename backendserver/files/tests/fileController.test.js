@@ -80,7 +80,8 @@ describe("fileController", () => {
                 FileName: "report.pdf",
                 FilePath: "uploads/report.pdf",
                 FileSize: 1234,
-                FileType: "application/pdf"
+                FileType: "application/pdf",
+                UploadedAt: expect.any(Date)
             });
             expect(saveMock).toHaveBeenCalled();
             expect(res.status).toHaveBeenCalledWith(201);
