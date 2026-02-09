@@ -166,17 +166,19 @@ jobs:
         run: |
           cat > backendserver/.env << EOF
           PORT=3000
-          JWT_SECRET=${{ secrets.JWT_SECRET }}
-          NODE_ENV=production
-          MONGODB_URI=${{ secrets.MONGODB_URI }}
+          JWT_SECRET=${{ secrets.JWT_SECRET || 'test-jwt-secret-for-ci' }}
+          NODE_ENV=ci
+          MONGODB_URI=${{ secrets.MONGODB_URI || 'mongodb://localhost:27017/test' }}
           EOF
+          echo "✅ Environment file created"
 
       - name: Start Services
         run: |
           echo "🚀 Starting test services for PR #${{ github.event.pull_request.number }}..."
-          docker compose -f backendserver/docker-compose.yml up -d --build
+          cd backendserver
+          docker compose up -d --build
           echo "⏳ Waiting for services to be ready..."
-          sleep 30
+          sleep 60
 
       - name: Run deployment health checks
         run: |
@@ -193,6 +195,20 @@ jobs:
           curl -f http://localhost:4002/health || curl -f http://localhost:4002/ || echo "Files service check"
           
           echo "✅ Health checks completed"
+
+      - name: Print container status
+        if: always()
+        run: |
+          echo "📋 Container status:"
+          cd backendserver
+          docker compose ps
+
+      - name: Print docker logs on failure
+        if: failure()
+        run: |
+          echo "📜 Printing container logs..."
+          cd backendserver
+          docker compose logs
 
       - name: Run smoke tests
         run: |
@@ -217,7 +233,8 @@ jobs:
         if: always()
         run: |
           echo "🧹 Cleaning up test deployment..."
-          docker compose down
+          cd backendserver
+          docker compose down -v
           echo "✅ Cleanup completed"
 
       - name: Deployment summary
