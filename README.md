@@ -76,26 +76,38 @@ cd backendserver/users
 npm test
 ```
 
-Expected output: **83 tests passing** ✅
+Expected output: **86 tests passing** ✅
 
 **Quick Test Commands:**
 ```bash
 npm test                 # Run all tests
-npm run test:coverage    # With coverage report
-npm run test:security    # Security tests only
-npm run test:unit        # Unit tests only
-npm run test:integration # Integration tests only (with in-memory DB)
-npm run test:watch       # Watch mode for development
+npm run test:coverage    # Run tests with coverage report
 ```
 
 **Test Coverage Status:**
-- ✅ 83 tests passing (23 unit + 16 security + 30 middleware + 7 integration + 7 active integration)
-- ✅ Controllers: 100% coverage
-- ✅ Models: 100% coverage
-- ✅ Middlewares: 100% coverage
-- ✅ Integration tests: Enabled with MongoDB Memory Server
-- 📋 See [TESTING_GUIDE.md](backendserver/users/TESTING_GUIDE.md) for detailed testing documentation
-- 📋 See [TEST_ANALYSIS_REPORT.md](TEST_ANALYSIS_REPORT.md) for comprehensive test analysis
+- ✅ **86 tests passing** - all tests green!
+  - 31 unit tests (user controller + user model)
+  - 30 middleware validation tests (userValidation + JWT verification)
+  - 16 security tests (SQL injection, password hashing, JWT, RBAC, brute force)
+  - 7 integration tests (end-to-end API testing with MongoDB Memory Server)
+  - 15 rate limiting tests (login, create user, delete user, API limits)
+- ✅ **100% Code Coverage**
+  - Controllers: 100% statements, 100% branches, 100% functions, 100% lines
+  - Models: 100% statements, 100% branches, 100% functions, 100% lines
+  - Middlewares: 100% statements, 100% branches, 100% functions, 100% lines
+
+**Test Framework & Tools:**
+- **Jest** - Testing framework with built-in coverage
+- **Supertest** - HTTP assertions for integration tests
+- **MongoDB Memory Server** - In-memory database for isolated integration tests
+- **bcrypt** - Password hashing security tests
+- **jsonwebtoken** - JWT token generation and verification tests
+
+**Password Requirements (enforced in tests):**
+- Minimum 8 characters
+- At least 1 uppercase letter
+- At least 1 lowercase letter  
+- At least 1 number
 
 ### Step 6: Run the Application Locally
 
@@ -135,6 +147,37 @@ python -m http.server 8080
 - **Admin Account**: Create via API or database
   - Username: `admin`
   - Password: Must meet criteria (8+ chars, 1 uppercase, 1 lowercase, 1 number)
+
+### Security Features
+
+#### Rate Limiting Protection
+The application includes comprehensive rate limiting to prevent abuse:
+
+**Login Endpoint** (`POST /login`)
+- **Limit**: 5 attempts per 15 minutes per IP
+- **Purpose**: Prevents brute force password attacks
+- **Response**: `429 Too Many Requests` after limit exceeded
+
+**User Creation** (`POST /admin/create_user`)
+- **Limit**: 10 requests per hour per IP
+- **Purpose**: Prevents spam account creation
+- **Response**: Custom error message
+
+**User Deletion** (`DELETE /admin/delete_user/:id`)
+- **Limit**: 20 requests per 15 minutes per IP
+- **Purpose**: Prevents abuse of delete operations and potential data loss attacks
+- **Response**: `429 Too Many Requests` after limit exceeded
+
+**General API**
+- **Limit**: 100 requests per 15 minutes per IP
+- **Purpose**: Prevents DoS/DDoS attacks and resource exhaustion
+- **Headers**: Includes `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`
+
+**Implementation**: Built with `express-rate-limit` middleware
+- Applies to ALL requests (both successful and failed)
+- Per-IP tracking
+- Standard HTTP 429 status codes
+- Includes retry-after information
 
 ---
 

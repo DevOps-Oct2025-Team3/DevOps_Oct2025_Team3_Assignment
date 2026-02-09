@@ -3,7 +3,7 @@ name: Pull Request Checks
 on:
   pull_request:
     branches: [ main, master ]
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
@@ -16,7 +16,6 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false
     
     steps:
       - name: Checkout code
@@ -87,7 +86,6 @@ jobs:
   security:
     name: Security Checks
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false
     
     steps:
       - name: Checkout code
@@ -129,7 +127,6 @@ jobs:
   build:
     name: Build Docker Images
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false
     needs: [test, security]
     
     strategy:
@@ -157,7 +154,6 @@ jobs:
   test-deployment:
     name: Test Deployment
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false
     needs: [build]
     environment:
       name: pr-preview-${{ github.event.pull_request.number }}
@@ -166,12 +162,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Create environment file
+        run: |
+          cat > backendserver/.env << EOF
+          PORT=3000
+          JWT_SECRET=${{ secrets.JWT_SECRET || 'test-jwt-secret-for-ci' }}
+          NODE_ENV=ci
+          MONGODB_URI=${{ secrets.MONGODB_URI || 'mongodb://localhost:27017/test' }}
+          EOF
+          echo "✅ Environment file created"
+
       - name: Start Services
         run: |
           echo "🚀 Starting test services for PR #${{ github.event.pull_request.number }}..."
+          cd backendserver
           docker compose up -d --build
           echo "⏳ Waiting for services to be ready..."
-          sleep 30
+          sleep 60
 
       - name: Run deployment health checks
         run: |
@@ -179,15 +186,29 @@ jobs:
           
           # Check if services are responding
           echo "Checking users service..."
-          curl -f http://localhost:3000/health || curl -f http://localhost:3000/ || echo "Users service check"
+          curl -f http://localhost:4001/health || curl -f http://localhost:4001/ || echo "Users service check"
           
           echo "Checking gateway service..."
-          curl -f http://localhost:8080/health || curl -f http://localhost:8080/ || echo "Gateway service check"
+          curl -f http://localhost:3000/health || curl -f http://localhost:3000/ || echo "Gateway service check"
           
           echo "Checking files service..."
-          curl -f http://localhost:3001/health || curl -f http://localhost:3001/ || echo "Files service check"
+          curl -f http://localhost:4002/health || curl -f http://localhost:4002/ || echo "Files service check"
           
           echo "✅ Health checks completed"
+
+      - name: Print container status
+        if: always()
+        run: |
+          echo "📋 Container status:"
+          cd backendserver
+          docker compose ps
+
+      - name: Print docker logs on failure
+        if: failure()
+        run: |
+          echo "📜 Printing container logs..."
+          cd backendserver
+          docker compose logs
 
       - name: Run smoke tests
         run: |
@@ -195,7 +216,7 @@ jobs:
           
           # Test 1: Login endpoint
           echo "Testing user login..."
-          LOGIN_RESPONSE=$(curl -X POST http://localhost:3000/api/users/login \
+          LOGIN_RESPONSE=$( curl -X POST http://localhost:4001/login \
             -H "Content-Type: application/json" \
             -d '{"username":"testuser","password":"Testing1"}' \
             -w "\nHTTP_STATUS:%{http_code}" -s) || echo "Login endpoint tested"
@@ -204,7 +225,7 @@ jobs:
           
           # Test 2: Gateway routing
           echo "Testing gateway service..."
-          curl -f http://localhost:8080/ -w "\nStatus: %{http_code}\n" || echo "Gateway tested"
+          curl -f http://localhost:3000/ -w "\nStatus: %{http_code}\n" || echo "Gateway tested"
           
           echo "✅ Smoke tests completed - critical paths verified"
 
@@ -212,7 +233,8 @@ jobs:
         if: always()
         run: |
           echo "🧹 Cleaning up test deployment..."
-          docker compose down
+          cd backendserver
+          docker compose down -v
           echo "✅ Cleanup completed"
 
       - name: Deployment summary
@@ -227,7 +249,7 @@ jobs:
     name: PR Check Summary
     runs-on: ubuntu-latest
     needs: [test, security, build, test-deployment]
-    if: always() && github.event.pull_request.draft == false
+    if: always()
     
     steps:
       - name: Check all jobs status
