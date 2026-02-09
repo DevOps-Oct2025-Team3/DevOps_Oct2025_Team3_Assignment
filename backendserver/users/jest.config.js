@@ -26,10 +26,16 @@ module.exports = {
         './controllers/**/*.js': {
             branches: 95,
             functions: 100,
+            lines: 98,
+            statements: 98
+        },
+        './models/**/*.js': {
+            branches: 100,
+            functions: 100,
             lines: 100,
             statements: 100
         },
-        './models/**/*.js': {
+        './middlewares/**/*.js': {
             branches: 100,
             functions: 100,
             lines: 100,
