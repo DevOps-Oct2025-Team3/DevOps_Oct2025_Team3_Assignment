@@ -78,6 +78,13 @@ npm test
 
 Expected output: **86 tests passing** ✅
 
+```bash
+cd backendserver/files
+npm test
+```
+
+Expected output: **22 tests passing** ✅
+
 **Quick Test Commands:**
 ```bash
 npm test                 # Run all tests
@@ -85,10 +92,10 @@ npm run test:coverage    # Run tests with coverage report
 ```
 
 **Test Coverage Status:**
-- ✅ **86 tests passing** - all tests green!
-  - 31 unit tests (user controller + user model)
+- ✅ **108 tests passing** - all tests green!
+  - 49 unit tests (user controller + user model + file controller + file model)
   - 30 middleware validation tests (userValidation + JWT verification)
-  - 16 security tests (SQL injection, password hashing, JWT, RBAC, brute force)
+  - 20 security tests (SQL injection, password hashing, JWT, RBAC, brute force)
   - 7 integration tests (end-to-end API testing with MongoDB Memory Server)
   - 15 rate limiting tests (login, create user, delete user, API limits)
 - ✅ **100% Code Coverage**
@@ -329,7 +336,7 @@ The pipeline automatically triggers on:
 1. Navigate to the **Actions** tab in your GitHub repository
 2. Click on the latest workflow run
 3. View real-time progress of each job:
-   - ✅ **Build & Test**: Runs all 83 tests with 100% coverage
+   - ✅ **Build & Test**: Runs all 108 tests with 100% coverage
    - ✅ **Security Scanning**: npm audit + security tests
    - ✅ **Build Docker**: Creates container images for 3 services
    - ✅ **Deploy**: Automated deployment with smoke tests
