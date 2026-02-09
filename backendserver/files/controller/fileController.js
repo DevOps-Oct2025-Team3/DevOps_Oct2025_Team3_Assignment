@@ -1,4 +1,6 @@
 const File = require("../model/fileModel");
+const fs = require("fs").promises;
+const path = require("path");
 
 //get files by user 
 async function getAllFiles(req, res) {
@@ -65,6 +67,15 @@ async function deleteFile(req, res) {
             return res.status(403).json({ message: "Access denied" });
         }
 
+        // Delete physical file from uploads folder
+        try {
+            await fs.unlink(file.FilePath);
+            console.log(`[deleteFile] Physical file deleted: ${file.FilePath}`);
+        } catch (fsError) {
+            console.error(`[deleteFile] Error deleting physical file: ${fsError.message}`);
+        }
+
+        // Delete database record
         await File.findByIdAndDelete(req.params.id);
         return res.status(200).json({ message: "File deleted successfully" });
 
