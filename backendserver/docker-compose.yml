@@ -35,6 +35,8 @@ services:
         JWT_SECRET: ${JWT_SECRET}
     ports:
       - "4002:4002"
-    
+    volumes:
+      - ./files/uploads:/app/uploads
     env_file:
       - .env
+
