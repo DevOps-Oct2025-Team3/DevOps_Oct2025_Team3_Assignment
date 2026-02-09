@@ -1,0 +1,62 @@
+name: Approval and Merge to Main
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  merge:
+    name: Merge to Main
+    runs-on: ubuntu-latest
+    # Note: CI workflow must have already validated and built images before release is created
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Configure Git
+      run: |
+        git config user.name "GitHub Actions"
+        git config user.email "github-actions@github.com"
+    
+    - name: Prepare main branch
+      run: |
+        RELEASE_BRANCH="${{ github.event.release.target_commitish }}"
+        git fetch origin ${RELEASE_BRANCH}
+        if ! git rev-parse --verify origin/main >/dev/null 2>&1; then
+          git checkout -b main
+          git push origin main
+        else
+          git checkout main
+        fi
+    
+    - name: Merge release branch → main
+      run: |
+        RELEASE_BRANCH="${{ github.event.release.target_commitish }}"
+        git fetch origin ${RELEASE_BRANCH}
+        git merge origin/${RELEASE_BRANCH} --no-ff -m "Release: ${{ github.event.release.tag_name }} - ${{ github.event.release.name }}"
+    
+    - name: Apply Release Tag
+      id: tag
+      run: |
+        RELEASE_TAG="${{ github.event.release.tag_name }}"
+        git tag -a "${RELEASE_TAG}" -m "Release ${RELEASE_TAG}: ${{ github.event.release.name }}"
+        echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
+    
+    - name: Push to GitHub
+      run: |
+        git push origin main
+        git push origin ${{ steps.tag.outputs.release_tag }}
+    
+    - name: Deployment notification
+      run: |
+        echo "✅ Merged ${{ github.event.release.target_commitish }} → main"
+        echo "📦 Release: ${{ github.event.release.tag_name }}"
+        echo "🏷️ Tag applied: ${{ steps.tag.outputs.release_tag }}"
+        echo "🚀 Main deployment will now trigger automatically"

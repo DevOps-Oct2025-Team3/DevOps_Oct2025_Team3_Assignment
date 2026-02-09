@@ -26,7 +26,6 @@ connectDB();
 
 // --- Routes ---
 app.post("/login", userController.login); 
-app.post("/register", validateUser, userController.registerUser)
 app.get("/logout", (req, res) => {return res.status(200).json({ message: "Logged out successfully" });});
 app.get("/admin", verifyJWT, userController.getAllUsers);
 app.post("/admin/create_user", verifyJWT, validateUser, userController.createUser);
