@@ -1,4 +1,3 @@
-
 name: 3. DAST - Live Application Scan
 
 on:
@@ -55,7 +54,6 @@ jobs:
       
       - name: Verify application is running
         run: |
-          # Try multiple endpoints to verify app is running
           curl -f http://localhost:3000/ || 
           curl -f http://localhost:3000/logout || 
           (echo "❌ App not reachable, logs:" && cat app.log && exit 1)
@@ -84,10 +82,10 @@ jobs:
         uses: zaproxy/action-full-scan@v0.12.0
         with:
           target: 'http://localhost:3000'
-          cmd_options: '-a -j'
+          cmd_options: '-a -j -failOn HIGH'   
           allow_issue_writing: false
           artifact_name: 'zap-fullscan-scan'  
-        continue-on-error: true
+        continue-on-error: false
       
       - name: Upload ZAP fullscan reports
         uses: actions/upload-artifact@v4
