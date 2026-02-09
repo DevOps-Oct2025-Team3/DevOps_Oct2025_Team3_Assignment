@@ -4,8 +4,6 @@ const fileSchema = new mongoose.Schema({
   UserId: {
     type: String,
     required: true,
-    // This stores the custom "userId" string (e.g., "2") from your User model, 
-    // rather than the MongoDB _id.
   },
   FileName: {
     type: String,
@@ -33,5 +31,4 @@ const fileSchema = new mongoose.Schema({
   }
 });
 
-// Create the 'files' collection
 module.exports = mongoose.model("files", fileSchema);
