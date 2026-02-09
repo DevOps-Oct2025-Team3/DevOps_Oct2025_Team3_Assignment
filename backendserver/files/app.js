@@ -22,7 +22,6 @@ app.use(express.static(path.join(__dirname, "public")));
 const { verifyJWT: authenticateToken } = require("./middlewares/userValidation.js");
 connectDB();
 
-// Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads');
 try {
     if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
@@ -36,17 +35,40 @@ const storage = multer.diskStorage({
         cb(null, uploadsDir);
     },
     filename: function (req, file, cb) {
-        // keep original name (could also add timestamp/uid here)
-        cb(null, Date.now() + '-' + file.originalname);
+        const timestamp = Date.now();
+        const randomString = Math.random().toString(36).substring(7);
+        cb(null, `${timestamp}-${randomString}-${file.originalname}`);
     }
 });
-const upload = multer({ storage });
+
+const upload = multer({ 
+    storage,
+    limits: {
+        fileSize: 50 * 1024 * 1024  // 50MB limit
+    },
+    fileFilter: function (req, file, cb) {
+        console.log(`[Multer] Receiving file: ${file.originalname} (${file.size} bytes)`);
+        cb(null, true);
+    }
+});
 
 // Routes
 app.get("/dashboard", authenticateToken, fileController.getAllFiles);
 app.post("/dashboard/upload", authenticateToken, upload.single('file'), fileController.uploadFile);
 app.delete("/dashboard/delete/:id", authenticateToken, fileController.deleteFile);
 app.get("/dashboard/download/:id", authenticateToken, fileController.downloadFile);
+
+// Error handling middleware for multer
+app.use((error, req, res, next) => {
+    if (error instanceof multer.MulterError) {
+        console.error("[Multer Error]:", error);
+        return res.status(400).json({ message: `Upload error: ${error.message}` });
+    } else if (error) {
+        console.error("[Upload Error]:", error);
+        return res.status(500).json({ message: "Upload failed", error: error.message });
+    }
+    next();
+});
 
 // Server
 app.listen(port, () => {

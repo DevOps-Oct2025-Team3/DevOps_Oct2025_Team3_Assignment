@@ -23,83 +23,55 @@ async function getAllUsers(req, res) {
 }
 
 async function createUser(req, res) {
-    try {
-        const { username, password, role } = req.body;
-
-        // Validate password complexity
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/;
-        if (!passwordRegex.test(password)) {
-            return res.status(400).json({ message: "Password has to be at least 8 characters long, include one uppercase letter, one lowercase letter, and one number." });
-        }
-
-        const existingUser = await User.findOne({ username });
-        if (existingUser) {
-            return res.status(400).json({ message: "Username already exists" });
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        const nextId = await getNextSequence("userId");
-
-        const newUser = new User({
-            userId: nextId, 
-            username,
-            passwordHash: hashedPassword,
-            role
-        });
-
-        const savedUser = await newUser.save();
-
-        const responseUser = savedUser.toObject();
-        delete responseUser.passwordHash;
-
-        return res.status(201).json(responseUser);
-    } catch (error) {
-        console.error("Controller error in createUser: ", error);
-        return res.status(500).json({ message: "Internal server error" });
-    }
-}
-
-async function registerUser(req, res) {
     const { username, password, role } = req.body;
 
     try {
+        // Validate username
         if (typeof username !== "string" || username.trim() === "") {
             return res.status(400).json({ message: "Invalid username" });
         }
 
+        // Validate password complexity (8+ chars, 1 uppercase, 1 lowercase, 1 number)
         const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/;
         if (!passwordRegex.test(password)) {
             return res.status(400).json({ message: "Password has to be at least 8 characters long, include one uppercase letter, one lowercase letter, and one number." });
         }
 
+        // Validate role
         const validRoles = ["Admin", "User"];
         if (role && !validRoles.includes(role)) {
             return res.status(400).json({ message: "Invalid user role" });
         }
 
-        const existingUser = await User.findOne({ username });
+        // Check if username already exists
+        const existingUser = await User.findOne({ username: username.trim() });
         if (existingUser) {
             return res.status(400).json({ message: "Username already exists" });
         }
 
+        // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        // Get next user ID
         const nextId = await getNextSequence("userId");
 
+        // Create new user
         const newUser = new User({
             userId: nextId,
-            username,
+            username: username.trim(),
             passwordHash: hashedPassword,
             role: role || 'User'
         });
 
         const savedUser = await newUser.save();
 
-        return res.status(201).json({ message: "User registered successfully", userId: savedUser.userId });
+        // Return user without password
+        const responseUser = savedUser.toObject();
+        delete responseUser.passwordHash;
 
+        return res.status(201).json(responseUser);
     } catch (error) {
-        console.error("Error in registerUser: ", error);
+        console.error("Controller error in createUser: ", error);
         return res.status(500).json({ message: "Internal server error" });
     }
 }
@@ -165,6 +137,5 @@ module.exports = {
     getAllUsers,
     createUser,
     deleteUser,
-    registerUser,
     login,
 };

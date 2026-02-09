@@ -229,11 +229,20 @@ const uploadForm = document.getElementById('uploadForm');
 if (uploadForm) {
     uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        const fileInput = document.getElementById('fileInput');
+        if (!fileInput.files || !fileInput.files[0]) {
+            showAlert('Please select a file to upload', 'warning');
+            return;
+        }
+
+        const file = fileInput.files[0];
         const formData = new FormData();
-        formData.append('file', document.getElementById('fileInput').files[0]);
+        formData.append('file', file);
 
         try {
-            // FIXED: Changed files/files to just /files
+            console.log(`Uploading file: ${file.name} (${file.size} bytes)`);
+            
             const response = await fetch(`${API_BASE}/files/dashboard/upload`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
@@ -242,11 +251,20 @@ if (uploadForm) {
             
             if (handleTokenExpiration(response)) return;
             
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `Upload failed with status ${response.status}`);
+            }
+            
+            const uploadedFile = await response.json();
+            console.log('File uploaded successfully:', uploadedFile);
+            
             loadFiles();
             e.target.reset();
-            showAlert('File uploaded', 'success');
+            showAlert(`File "${file.name}" uploaded successfully`, 'success');
         } catch (err) {
-            showAlert('Upload failed');
+            console.error('Upload error:', err);
+            showAlert(`Upload failed: ${err.message || 'Unknown error'}`, 'danger');
         }
     });
 }
@@ -290,21 +308,26 @@ async function loadFiles() {
     if (!tbody) return;
 
     try {
-        // FIXED: Changed files/files to just /files
         const res = await fetch(`${API_BASE}/files/dashboard`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
         if (handleTokenExpiration(res)) return;
         
+        if (!res.ok) {
+            throw new Error(`Failed to load files: ${res.status}`);
+        }
+        
         const files = await res.json();
+        console.log(`[loadFiles] Loaded ${files.length} files`);
         
         tbody.innerHTML = '';
         files.forEach(f => {
+            const fileSize = f.FileSize ? (f.FileSize / 1024).toFixed(2) + ' KB' : 'Unknown';
             tbody.innerHTML += `
                 <tr>
                     <td>${f.FileName}</td>
-                    <td>${f.FileSize}</td>
+                    <td>${fileSize}</td>
                     <td>${new Date(f.UploadedAt).toLocaleDateString()}</td>
                     <td>
                         <button onclick="downloadFile('${f._id}', '${f.FileName.replace(/'/g, "\\'")}')" class="btn btn-sm btn-primary">Download</button>
@@ -314,7 +337,37 @@ async function loadFiles() {
             `;
         });
     } catch (err) {
-        showAlert('Failed to load files');
+        console.error('[loadFiles] Error:', err);
+        showAlert('Failed to load files', 'danger');
+    }
+}
+
+// Download function with Authorization header
+async function downloadFile(fileId, fileName) {
+    try {
+        const response = await fetch(`${API_BASE}/files/dashboard/download/${fileId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (handleTokenExpiration(response)) return;
+
+        if (!response.ok) {
+            showAlert('Download failed: ' + response.statusText);
+            return;
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    } catch (err) {
+        console.error('Download error:', err);
+        showAlert('Download failed');
     }
 }
 
