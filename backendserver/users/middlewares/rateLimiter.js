@@ -26,6 +26,19 @@ const createUserLimiter = rateLimit({
     skipFailedRequests: false
 });
 
+// Rate limiter for user deletion (prevents abuse of delete operations)
+const deleteUserLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 20, // Limit each IP to 20 delete requests per 15 minutes
+    message: {
+        message: "Too many delete requests from this IP, please try again after 15 minutes"
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: false,
+    skipFailedRequests: false
+});
+
 // General API rate limiter (prevents DoS attacks)
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -42,5 +55,6 @@ const apiLimiter = rateLimit({
 module.exports = {
     loginLimiter,
     createUserLimiter,
+    deleteUserLimiter,
     apiLimiter
 };

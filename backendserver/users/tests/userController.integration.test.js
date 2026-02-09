@@ -2,6 +2,7 @@ const request = require("supertest");
 const express = require("express");
 const mongoose = require("mongoose");
 const { MongoMemoryServer } = require("mongodb-memory-server");
+const rateLimit = require("express-rate-limit");
 const User = require("../models/userModel");
 const Counter = require("../models/counterModel");
 const userController = require("../controllers/userController");
@@ -13,11 +14,43 @@ process.env.JWT_SECRET = "test-jwt-secret-key-for-integration-tests";
 const app = express();
 app.use(express.json());
 
-// Define routes for testing (without auth middleware for testing)
-app.post("/login", userController.login);
+// Configure rate limiters for test environment (generous limits to not interfere with tests)
+const testApiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 1000, // Very high limit for tests
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const testLoginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100, // High enough for test suite
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const testCreateUserLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 200, // High enough for test suite
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const testDeleteUserLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100, // Limit for delete operations
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// Apply general API rate limiting
+app.use(testApiLimiter);
+
+// Define routes for testing (without auth middleware for testing, but with rate limiting)
+app.post("/login", testLoginLimiter, userController.login);
 app.get("/admin", userController.getAllUsers);
-app.post("/admin/create_user", userController.createUser);
-app.delete("/admin/delete_user/:id", userController.deleteUser);
+app.post("/admin/create_user", testCreateUserLimiter, userController.createUser);
+app.delete("/admin/delete_user/:id", testDeleteUserLimiter, userController.deleteUser);
 
 let mongoServer;
 

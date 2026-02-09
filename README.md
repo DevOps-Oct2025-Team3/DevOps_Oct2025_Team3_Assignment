@@ -76,7 +76,7 @@ cd backendserver/users
 npm test
 ```
 
-Expected output: **82 tests passing** ✅
+Expected output: **86 tests passing** ✅
 
 **Quick Test Commands:**
 ```bash
@@ -85,12 +85,12 @@ npm run test:coverage    # Run tests with coverage report
 ```
 
 **Test Coverage Status:**
-- ✅ **82 tests passing** - all tests green!
+- ✅ **86 tests passing** - all tests green!
   - 31 unit tests (user controller + user model)
   - 30 middleware validation tests (userValidation + JWT verification)
   - 16 security tests (SQL injection, password hashing, JWT, RBAC, brute force)
   - 7 integration tests (end-to-end API testing with MongoDB Memory Server)
-  - 11 rate limiting tests (login, create user, API limits)
+  - 15 rate limiting tests (login, create user, delete user, API limits)
 - ✅ **100% Code Coverage**
   - Controllers: 100% statements, 100% branches, 100% functions, 100% lines
   - Models: 100% statements, 100% branches, 100% functions, 100% lines
@@ -162,6 +162,11 @@ The application includes comprehensive rate limiting to prevent abuse:
 - **Limit**: 10 requests per hour per IP
 - **Purpose**: Prevents spam account creation
 - **Response**: Custom error message
+
+**User Deletion** (`DELETE /admin/delete_user/:id`)
+- **Limit**: 20 requests per 15 minutes per IP
+- **Purpose**: Prevents abuse of delete operations and potential data loss attacks
+- **Response**: `429 Too Many Requests` after limit exceeded
 
 **General API**
 - **Limit**: 100 requests per 15 minutes per IP

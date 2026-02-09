@@ -15,6 +15,7 @@ const {
 const { 
     loginLimiter, 
     createUserLimiter, 
+    deleteUserLimiter,
     apiLimiter 
 } = require("./middlewares/rateLimiter.js");
 const connectDB = require('./dbConfig.js');
@@ -37,7 +38,7 @@ app.post("/login", loginLimiter, userController.login);
 app.get("/logout", (req, res) => {return res.status(200).json({ message: "Logged out successfully" });});
 app.get("/admin", verifyJWT, userController.getAllUsers);
 app.post("/admin/create_user", verifyJWT, createUserLimiter, validateUser, userController.createUser);
-app.delete("/admin/delete_user/:id", verifyJWT, validateId, userController.deleteUser);
+app.delete("/admin/delete_user/:id", verifyJWT, deleteUserLimiter, validateId, userController.deleteUser);
 
 
 

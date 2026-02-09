@@ -1,6 +1,6 @@
 const request = require('supertest');
 const express = require('express');
-const { loginLimiter, createUserLimiter, apiLimiter } = require('../middlewares/rateLimiter');
+const { loginLimiter, createUserLimiter, deleteUserLimiter, apiLimiter } = require('../middlewares/rateLimiter');
 
 describe('Rate Limiter Middleware Tests', () => {
     let app;
@@ -90,6 +90,44 @@ describe('Rate Limiter Middleware Tests', () => {
         });
     });
 
+    describe('deleteUserLimiter', () => {
+        beforeEach(() => {
+            app.delete('/test-delete/:id', deleteUserLimiter, (req, res) => {
+                res.status(200).json({ message: 'User deleted' });
+            });
+        });
+
+        it('should allow requests within the limit (20 per 15 minutes)', async () => {
+            for (let i = 0; i < 20; i++) {
+                const response = await request(app)
+                    .delete(`/test-delete/${i}`);
+                
+                expect(response.status).toBe(200);
+                expect(response.body.message).toBe('User deleted');
+            }
+        });
+
+        it('should block requests after exceeding the limit', async () => {
+            // Make 20 requests (the limit)
+            for (let i = 0; i < 20; i++) {
+                await request(app).delete(`/test-delete/${i}`);
+            }
+
+            // 21st request should be blocked
+            const response = await request(app).delete('/test-delete/21');
+
+            expect(response.status).toBe(429);
+            expect(response.body.message).toContain('Too many delete requests');
+        });
+
+        it('should include rate limit headers', async () => {
+            const response = await request(app).delete('/test-delete/1');
+
+            expect(response.headers).toHaveProperty('ratelimit-limit', '20');
+            expect(response.headers).toHaveProperty('ratelimit-remaining');
+        });
+    });
+
     describe('apiLimiter', () => {
         beforeEach(() => {
             app.get('/test-api', apiLimiter, (req, res) => {
@@ -133,6 +171,11 @@ describe('Rate Limiter Middleware Tests', () => {
         it('should have correct window time for createUserLimiter', () => {
             expect(createUserLimiter).toBeDefined();
             // createUserLimiter configured for 1 hour (3600000 ms)
+        });
+
+        it('should have correct window time for deleteUserLimiter', () => {
+            expect(deleteUserLimiter).toBeDefined();
+            // deleteUserLimiter configured for 15 minutes (900000 ms)
         });
 
         it('should have correct window time for apiLimiter', () => {
