@@ -307,7 +307,7 @@ async function loadFiles() {
                     <td>${f.FileSize}</td>
                     <td>${new Date(f.UploadedAt).toLocaleDateString()}</td>
                     <td>
-                        <button onclick="downloadFile('${f._id}')" class="btn btn-sm btn-primary">Download</button>
+                        <button onclick="downloadFile('${f._id}', '${f.FileName.replace(/'/g, "\\'")}')" class="btn btn-sm btn-primary">Download</button>
                         <button onclick="deleteFile('${f._id}')" class="btn btn-sm btn-danger">Delete</button>
                     </td>
                 </tr>
@@ -362,13 +362,15 @@ window.deleteFile = async (id) => {
     }
 };
 
-window.downloadFile = async (id) => {
+window.downloadFile = async (id, fallbackName = 'download') => {
     try {
+        // Request the file with auth since the endpoint is protected.
         const response = await fetch(`${API_BASE}/files/dashboard/download/${id}`, {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
+        // If the token expired, the helper handles redirect/alert.
         if (handleTokenExpiration(response)) return;
 
         if (!response.ok) {
@@ -376,15 +378,18 @@ window.downloadFile = async (id) => {
             return;
         }
 
+        // Extract mime type + filename for a proper download prompt.
         const type = response.headers.get('content-type') || 'application/octet-stream';
         const disposition = response.headers.get('content-disposition') || '';
         const match = disposition.match(/filename="?([^";]+)"?/i);
-        const filename = match ? match[1] : 'download';
+        const filename = match ? match[1] : fallbackName;
 
+        // Build a Blob from the response bytes and create a temporary URL.
         const data = await response.arrayBuffer();
         const blob = new Blob([data], { type: type });
         const url = URL.createObjectURL(blob);
 
+        // Trigger a browser download by clicking a temporary anchor element.
         const link = document.createElement('a');
         link.href = url;
         link.download = filename;
