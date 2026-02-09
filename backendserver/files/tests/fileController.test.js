@@ -52,7 +52,13 @@ describe("fileController", () => {
         });
 
         it("should save file metadata and return 201", async () => {
-            const savedFile = { FileName: "report.pdf" };
+            const savedFile = {
+                _id: "abc123",
+                FileName: "report.pdf",
+                FileSize: 1234,
+                FilePath: "uploads/report.pdf",
+                UploadedAt: new Date("2024-01-01T00:00:00.000Z")
+            };
             const saveMock = jest.fn().mockResolvedValue(savedFile);
             File.mockImplementation(() => ({ save: saveMock }));
 
@@ -78,7 +84,14 @@ describe("fileController", () => {
             });
             expect(saveMock).toHaveBeenCalled();
             expect(res.status).toHaveBeenCalledWith(201);
-            expect(res.json).toHaveBeenCalledWith(savedFile);
+            expect(res.json).toHaveBeenCalledWith({
+                _id: savedFile._id,
+                FileName: savedFile.FileName,
+                FileSize: savedFile.FileSize,
+                FilePath: savedFile.FilePath,
+                UploadedAt: savedFile.UploadedAt,
+                message: "File uploaded and saved successfully"
+            });
         });
 
         it("should return 500 on error", async () => {
@@ -99,7 +112,10 @@ describe("fileController", () => {
             await fileController.uploadFile(req, res);
 
             expect(res.status).toHaveBeenCalledWith(500);
-            expect(res.json).toHaveBeenCalledWith({ message: "Internal server error" });
+            expect(res.json).toHaveBeenCalledWith({
+                message: "Internal server error",
+                error: "DB error"
+            });
         });
     });
 
@@ -193,17 +209,16 @@ describe("fileController", () => {
             expect(res.json).toHaveBeenCalledWith({ message: "Access denied" });
         });
 
-        it("should return file metadata when owner", async () => {
-            const file = { UserId: "1", FileName: "report.pdf" };
+        it("should download file when owner", async () => {
+            const file = { UserId: "1", FileName: "report.pdf", FilePath: "uploads/report.pdf" };
             File.findById.mockResolvedValue(file);
 
             const req = { params: { id: "abc" }, user: { userId: "1", role: "User" } };
-            const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+            const res = { status: jest.fn().mockReturnThis(), json: jest.fn(), download: jest.fn() };
 
             await fileController.downloadFile(req, res);
 
-            expect(res.status).toHaveBeenCalledWith(200);
-            expect(res.json).toHaveBeenCalledWith(file);
+            expect(res.download).toHaveBeenCalledWith(file.FilePath, file.FileName);
         });
 
         it("should return 500 on error", async () => {
