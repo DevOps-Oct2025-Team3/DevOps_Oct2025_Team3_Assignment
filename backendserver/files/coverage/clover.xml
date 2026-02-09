@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<coverage generated="1770642613522" clover="3.2.0">
+  <project timestamp="1770642613523" name="All files">
+    <metrics statements="41" coveredstatements="41" conditionals="14" coveredconditionals="14" methods="4" coveredmethods="4" elements="59" coveredelements="59" complexity="0" loc="41" ncloc="41" packages="2" files="2" classes="2"/>
+    <package name="controller">
+      <metrics statements="38" coveredstatements="38" conditionals="14" coveredconditionals="14" methods="4" coveredmethods="4"/>
+      <file name="fileController.js" path="C:\Users\Jan\Desktop\-\Schoolovo\DevOps\DevOps_Oct2025_Team3_Assignment\backendserver\files\controller\fileController.js">
+        <metrics statements="38" coveredstatements="38" conditionals="14" coveredconditionals="14" methods="4" coveredmethods="4"/>
+        <line num="1" count="2" type="stmt"/>
+        <line num="5" count="3" type="stmt"/>
+        <line num="6" count="3" type="stmt"/>
+        <line num="8" count="3" type="stmt"/>
+        <line num="11" count="1" type="stmt"/>
+        <line num="13" count="2" type="stmt"/>
+        <line num="14" count="2" type="stmt"/>
+        <line num="20" count="4" type="stmt"/>
+        <line num="21" count="4" type="cond" truecount="2" falsecount="0"/>
+        <line num="22" count="1" type="stmt"/>
+        <line num="23" count="1" type="stmt"/>
+        <line num="26" count="3" type="stmt"/>
+        <line num="28" count="3" type="stmt"/>
+        <line num="37" count="3" type="stmt"/>
+        <line num="38" count="2" type="stmt"/>
+        <line num="40" count="2" type="stmt"/>
+        <line num="50" count="1" type="stmt"/>
+        <line num="51" count="1" type="stmt"/>
+        <line num="57" count="7" type="stmt"/>
+        <line num="58" count="7" type="stmt"/>
+        <line num="60" count="6" type="cond" truecount="2" falsecount="0"/>
+        <line num="61" count="1" type="stmt"/>
+        <line num="64" count="5" type="cond" truecount="4" falsecount="0"/>
+        <line num="65" count="2" type="stmt"/>
+        <line num="68" count="3" type="stmt"/>
+        <line num="69" count="3" type="stmt"/>
+        <line num="72" count="1" type="stmt"/>
+        <line num="73" count="1" type="stmt"/>
+        <line num="78" count="6" type="stmt"/>
+        <line num="79" count="6" type="stmt"/>
+        <line num="81" count="5" type="cond" truecount="2" falsecount="0"/>
+        <line num="82" count="1" type="stmt"/>
+        <line num="85" count="4" type="cond" truecount="4" falsecount="0"/>
+        <line num="86" count="2" type="stmt"/>
+        <line num="90" count="2" type="stmt"/>
+        <line num="93" count="1" type="stmt"/>
+        <line num="94" count="1" type="stmt"/>
+        <line num="98" count="2" type="stmt"/>
+      </file>
+    </package>
+    <package name="model">
+      <metrics statements="3" coveredstatements="3" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+      <file name="fileModel.js" path="C:\Users\Jan\Desktop\-\Schoolovo\DevOps\DevOps_Oct2025_Team3_Assignment\backendserver\files\model\fileModel.js">
+        <metrics statements="3" coveredstatements="3" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="3" type="stmt"/>
+        <line num="3" count="3" type="stmt"/>
+        <line num="34" count="3" type="stmt"/>
+      </file>
+    </package>
+  </project>
+</coverage>
