@@ -1,4 +1,3 @@
-
 name: 3. DAST - Live Application Scan
 
 on:
@@ -55,11 +54,10 @@ jobs:
       
       - name: Verify application is running
         run: |
-          # Try multiple endpoints to verify app is running
-          curl -f http://localhost:3000/ || 
-          curl -f http://localhost:3000/logout || 
-          (echo "❌ App not reachable, logs:" && cat app.log && exit 1)
-          echo "Application is responding"
+          curl -f http://localhost:3000/ || \
+          curl -f http://localhost:3000/logout || \
+          (echo " App not reachable, logs:" && cat app.log && exit 1)
+          echo " Application is responding"
       
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.14.0
@@ -98,3 +96,12 @@ jobs:
             report_html.html
             report_json.json
             report_md.md
+      
+      - name: Fail workflow on HIGH/CRITICAL vulnerabilities
+        run: |
+          HIGH_COUNT=$(jq '[.site[].alerts[] | select(.risk=="High" or .risk=="Critical")] | length' report_json.json)
+          echo "High/Critical issues found: $HIGH_COUNT"
+          if [ "$HIGH_COUNT" -gt 0 ]; then
+            echo " Failing workflow due to HIGH/CRITICAL vulnerabilities"
+            exit 1
+          fi
