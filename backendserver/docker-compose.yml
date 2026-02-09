@@ -1,4 +1,16 @@
 services:
+  frontend:
+    build: ../frontend
+    container_name: frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - gateway
+    environment:
+      - API_BASE=http://localhost:3000
+    networks:
+      - backendserver
+
   gateway:
     build: ./gateway
     container_name: gateway
@@ -12,6 +24,8 @@ services:
     depends_on:
       - users
       - files
+    networks:
+      - backendserver
 
   users:
     build: ./users
@@ -25,6 +39,8 @@ services:
     
     env_file:
       - .env
+    networks:
+      - backendserver
 
   files:
     build: ./files
@@ -39,4 +55,9 @@ services:
       - ./files/uploads:/app/uploads
     env_file:
       - .env
+    networks:
+      - backendserver
 
+networks:
+  backendserver:
+    driver: bridge

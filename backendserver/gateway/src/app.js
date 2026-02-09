@@ -25,7 +25,8 @@ app.get("*", (req, res) => {
 
 console.log("API Gateway targets:", {
   FILES: process.env.FILES_SERVICE_URL || process.env.FILE_SERVICE,
-USERS: process.env.USERS_SERVICE_URL || process.env.USER_SERVICE
+USERS: process.env.USERS_SERVICE_URL || process.env.USER_SERVICE,
+FRONTEND: "http://localhost:80"
 });
 
 
