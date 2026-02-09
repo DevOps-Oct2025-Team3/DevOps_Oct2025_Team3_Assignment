@@ -41,7 +41,6 @@ app.post("/admin/create_user", verifyJWT, createUserLimiter, validateUser, userC
 app.delete("/admin/delete_user/:id", verifyJWT, deleteUserLimiter, validateId, userController.deleteUser);
 
 
-
 // --- Server Start ---
 app.listen(port, () => {
     console.log(`🚀 Server running on port ${port}`);
