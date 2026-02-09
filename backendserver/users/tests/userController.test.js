@@ -113,111 +113,10 @@ describe("userController.createUser", () => {
         expect(res.json).toHaveBeenCalledWith({ message: "Username already exists" });
     });
 
-    it("should return status 400 for weak password", async () => {
-        const reqBody = {
-            username: "newuser",
-            password: "weak",
-            role: "User"
-        };
-
-        const req = { body: reqBody };
-        const res = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn()
-        };
-
-        await userController.createUser(req, res);
-
-        expect(res.status).toHaveBeenCalledWith(400);
-        expect(res.json).toHaveBeenCalledWith({ 
-            message: "Password has to be at least 8 characters long, include one uppercase letter, one lowercase letter, and one number." 
-        });
-    });
-
-    it("should handle errors and return status 500", async () => {
-        const reqBody = {
-            username: "test",
-            password: "Password1",
-            role: "User"
-        };
-
-        User.findOne.mockRejectedValue(new Error("Database error"));
-
-        const req = { body: reqBody };
-        const res = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn()
-        };
-
-        await userController.createUser(req, res);
-
-        expect(res.status).toHaveBeenCalledWith(500);
-        expect(res.json).toHaveBeenCalledWith({ message: "Internal server error" });
-    });
-});
-
-describe("userController.registerUser", () => {
-    beforeEach(() => {
-        jest.clearAllMocks();
-    });
-
-    it("should register a new user and return status 201", async () => {
-        const reqBody = {
-            username: "newuser",
-            password: "Password1",
-            role: "User"
-        };
-
-        const savedUser = {
-            userId: "3",
-            username: "newuser",
-            role: "User"
-        };
-
-        User.findOne.mockResolvedValue(null);
-        bcrypt.hash.mockResolvedValue("hashedPassword");
-        Counter.findByIdAndUpdate.mockResolvedValue({ seq: 3 });
-        User.prototype.save = jest.fn().mockResolvedValue(savedUser);
-
-        const req = { body: reqBody };
-        const res = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn()
-        };
-
-        await userController.registerUser(req, res);
-
-        expect(User.findOne).toHaveBeenCalledWith({ username: reqBody.username });
-        expect(bcrypt.hash).toHaveBeenCalledWith(reqBody.password, 10);
-        expect(res.status).toHaveBeenCalledWith(201);
-        expect(res.json).toHaveBeenCalledWith({ message: "User registered successfully", userId: savedUser.userId });
-    });
-
-    it("should return status 400 if username already exists", async () => {
-        const reqBody = {
-            username: "existinguser",
-            password: "Password1",
-            role: "User"
-        };
-
-        User.findOne.mockResolvedValue({ userId: "1", username: "existinguser" });
-
-        const req = { body: reqBody };
-        const res = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn()
-        };
-
-        await userController.registerUser(req, res);
-
-        expect(res.status).toHaveBeenCalledWith(400);
-        expect(res.json).toHaveBeenCalledWith({ message: "Username already exists" });
-    });
-
     it("should return status 400 for invalid username", async () => {
         const reqBody = {
             username: "",
-            password: "Password1",
+            password: "Password123",
             role: "User"
         };
 
@@ -227,7 +126,7 @@ describe("userController.registerUser", () => {
             json: jest.fn()
         };
 
-        await userController.registerUser(req, res);
+        await userController.createUser(req, res);
 
         expect(res.status).toHaveBeenCalledWith(400);
         expect(res.json).toHaveBeenCalledWith({ message: "Invalid username" });
@@ -246,31 +145,12 @@ describe("userController.registerUser", () => {
             json: jest.fn()
         };
 
-        await userController.registerUser(req, res);
+        await userController.createUser(req, res);
 
         expect(res.status).toHaveBeenCalledWith(400);
         expect(res.json).toHaveBeenCalledWith({ 
             message: "Password has to be at least 8 characters long, include one uppercase letter, one lowercase letter, and one number." 
         });
-    });
-
-    it("should return status 400 for invalid role", async () => {
-        const reqBody = {
-            username: "newuser",
-            password: "Password1",
-            role: "InvalidRole"
-        };
-
-        const req = { body: reqBody };
-        const res = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn()
-        };
-
-        await userController.registerUser(req, res);
-
-        expect(res.status).toHaveBeenCalledWith(400);
-        expect(res.json).toHaveBeenCalledWith({ message: "Invalid user role" });
     });
 
     it("should handle errors and return status 500", async () => {
@@ -288,7 +168,7 @@ describe("userController.registerUser", () => {
             json: jest.fn()
         };
 
-        await userController.registerUser(req, res);
+        await userController.createUser(req, res);
 
         expect(res.status).toHaveBeenCalledWith(500);
         expect(res.json).toHaveBeenCalledWith({ message: "Internal server error" });

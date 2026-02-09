@@ -76,7 +76,7 @@ describe("Security Tests - User Controller", () => {
                 json: jest.fn()
             };
 
-            await userController.registerUser(req, res);
+            await userController.createUser(req, res);
 
             expect(res.status).toHaveBeenCalledWith(400);
             expect(res.json).toHaveBeenCalledWith({
@@ -97,7 +97,7 @@ describe("Security Tests - User Controller", () => {
                 json: jest.fn()
             };
 
-            await userController.registerUser(req, res);
+            await userController.createUser(req, res);
 
             expect(res.status).toHaveBeenCalledWith(400);
         });
@@ -115,7 +115,7 @@ describe("Security Tests - User Controller", () => {
                 json: jest.fn()
             };
 
-            await userController.registerUser(req, res);
+            await userController.createUser(req, res);
 
             expect(res.status).toHaveBeenCalledWith(400);
         });
@@ -128,11 +128,18 @@ describe("Security Tests - User Controller", () => {
             bcrypt.hash.mockResolvedValue(hashedPassword);
             Counter.findByIdAndUpdate.mockResolvedValue({ seq: 1 });
 
-            const mockSave = jest.fn().mockResolvedValue({
+            const mockSavedUser = {
                 userId: "1",
                 username: "testuser",
-                role: "User"
-            });
+                role: "User",
+                toObject: jest.fn().mockReturnValue({
+                    userId: "1",
+                    username: "testuser",
+                    role: "User",
+                    passwordHash: "hashedPassword"
+                })
+            };
+            const mockSave = jest.fn().mockResolvedValue(mockSavedUser);
             User.prototype.save = mockSave;
 
             const req = {
@@ -147,7 +154,7 @@ describe("Security Tests - User Controller", () => {
                 json: jest.fn()
             };
 
-            await userController.registerUser(req, res);
+            await userController.createUser(req, res);
 
             expect(bcrypt.hash).toHaveBeenCalledWith(plainPassword, 10);
         });
@@ -241,7 +248,7 @@ describe("Security Tests - User Controller", () => {
                 json: jest.fn()
             };
 
-            await userController.registerUser(req, res);
+            await userController.createUser(req, res);
 
             // Should handle the input safely without crashing
             expect(res.status).toHaveBeenCalled();
@@ -285,11 +292,18 @@ describe("Security Tests - User Controller", () => {
             Counter.findByIdAndUpdate.mockResolvedValue({ seq: 1 });
             bcrypt.hash.mockResolvedValue("hashedPassword");
 
-            const mockSave = jest.fn().mockResolvedValue({
+            const mockSavedUser = {
                 userId: "1",
                 username: "admin",
-                role: "Admin"
-            });
+                role: "Admin",
+                toObject: jest.fn().mockReturnValue({
+                    userId: "1",
+                    username: "admin",
+                    role: "Admin",
+                    passwordHash: "hashedPassword"
+                })
+            };
+            const mockSave = jest.fn().mockResolvedValue(mockSavedUser);
             User.prototype.save = mockSave;
 
             const req = {
@@ -304,7 +318,7 @@ describe("Security Tests - User Controller", () => {
                 json: jest.fn()
             };
 
-            await userController.registerUser(req, res);
+            await userController.createUser(req, res);
 
             expect(res.status).toHaveBeenCalledWith(201);
         });
@@ -314,11 +328,18 @@ describe("Security Tests - User Controller", () => {
             Counter.findByIdAndUpdate.mockResolvedValue({ seq: 1 });
             bcrypt.hash.mockResolvedValue("hashedPassword");
 
-            const mockSave = jest.fn().mockResolvedValue({
+            const mockSavedUser = {
                 userId: "1",
                 username: "user",
-                role: "User"
-            });
+                role: "User",
+                toObject: jest.fn().mockReturnValue({
+                    userId: "1",
+                    username: "user",
+                    role: "User",
+                    passwordHash: "hashedPassword"
+                })
+            };
+            const mockSave = jest.fn().mockResolvedValue(mockSavedUser);
             User.prototype.save = mockSave;
 
             const req = {
@@ -333,7 +354,7 @@ describe("Security Tests - User Controller", () => {
                 json: jest.fn()
             };
 
-            await userController.registerUser(req, res);
+            await userController.createUser(req, res);
 
             expect(res.status).toHaveBeenCalledWith(201);
         });
@@ -351,7 +372,7 @@ describe("Security Tests - User Controller", () => {
                 json: jest.fn()
             };
 
-            await userController.registerUser(req, res);
+            await userController.createUser(req, res);
 
             expect(res.status).toHaveBeenCalledWith(400);
             expect(res.json).toHaveBeenCalledWith({ message: "Invalid user role" });
@@ -365,10 +386,17 @@ describe("Security Tests - User Controller", () => {
             let savedUser;
             User.prototype.save = jest.fn().mockImplementation(function() {
                 savedUser = this;
+                const userData = {
+                    userId: "1",
+                    username: this.username,
+                    role: this.role,
+                    passwordHash: "hashedPassword"
+                };
                 return Promise.resolve({
                     userId: "1",
                     username: this.username,
-                    role: this.role
+                    role: this.role,
+                    toObject: jest.fn().mockReturnValue(userData)
                 });
             });
 
@@ -384,7 +412,7 @@ describe("Security Tests - User Controller", () => {
                 json: jest.fn()
             };
 
-            await userController.registerUser(req, res);
+            await userController.createUser(req, res);
 
             expect(res.status).toHaveBeenCalledWith(201);
         });

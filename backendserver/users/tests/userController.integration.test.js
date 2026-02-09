@@ -13,12 +13,11 @@ process.env.JWT_SECRET = "test-jwt-secret-key-for-integration-tests";
 const app = express();
 app.use(express.json());
 
-// Define routes for testing
-app.get("/api/users", userController.getAllUsers);
-app.post("/api/users", userController.createUser);
-app.post("/api/users/register", userController.registerUser);
-app.post("/api/users/login", userController.login);
-app.delete("/api/users/:id", userController.deleteUser);
+// Define routes for testing (without auth middleware for testing)
+app.post("/login", userController.login);
+app.get("/admin", userController.getAllUsers);
+app.post("/admin/create_user", userController.createUser);
+app.delete("/admin/delete_user/:id", userController.deleteUser);
 
 let mongoServer;
 
@@ -42,7 +41,7 @@ describe("User API Integration Tests", () => {
         await Counter.deleteMany({});
     });
 
-    describe("POST /api/users/register - Integration", () => {
+    describe("POST /admin/create_user - Integration", () => {
         it("should register a user and save to database", async () => {
             const userData = {
                 username: "integrationtest",
@@ -51,12 +50,14 @@ describe("User API Integration Tests", () => {
             };
 
             const response = await request(app)
-                .post("/api/users/register")
+                .post("/admin/create_user")
                 .send(userData)
                 .expect(201);
             
             expect(response.body).toHaveProperty("userId");
-            expect(response.body.message).toBe("User registered successfully");
+            expect(response.body).toHaveProperty("username", "integrationtest");
+            expect(response.body).toHaveProperty("role", "User");
+            expect(response.body).not.toHaveProperty("passwordHash");
 
             // Verify user exists in database
             const user = await User.findOne({ username: "integrationtest" });
@@ -67,7 +68,7 @@ describe("User API Integration Tests", () => {
         it("should prevent duplicate user registration", async () => {
             // Create user first
             await request(app)
-                .post("/api/users/register")
+                .post("/admin/create_user")
                 .send({
                     username: "duplicate",
                     password: "Password123",
@@ -77,7 +78,7 @@ describe("User API Integration Tests", () => {
 
             // Try to create same user again
             const response = await request(app)
-                .post("/api/users/register")
+                .post("/admin/create_user")
                 .send({
                     username: "duplicate",
                     password: "Password123",
@@ -89,11 +90,11 @@ describe("User API Integration Tests", () => {
         });
     });
 
-    describe("POST /api/users/login - Integration", () => {
+    describe("POST /login - Integration", () => {
         it("should login with valid credentials", async () => {
             // Create user first
             await request(app)
-                .post("/api/users/register")
+                .post("/admin/create_user")
                 .send({
                     username: "logintest",
                     password: "Password123",
@@ -103,7 +104,7 @@ describe("User API Integration Tests", () => {
 
             // Login with correct credentials
             const response = await request(app)
-                .post("/api/users/login")
+                .post("/login")
                 .send({
                     username: "logintest",
                     password: "Password123"
@@ -117,7 +118,7 @@ describe("User API Integration Tests", () => {
         it("should reject login with incorrect password", async () => {
             // Create user first
             await request(app)
-                .post("/api/users/register")
+                .post("/admin/create_user")
                 .send({
                     username: "logintest2",
                     password: "Password123",
@@ -127,7 +128,7 @@ describe("User API Integration Tests", () => {
 
             // Try to login with wrong password
             const response = await request(app)
-                .post("/api/users/login")
+                .post("/login")
                 .send({
                     username: "logintest2",
                     password: "WrongPassword123"
@@ -138,11 +139,11 @@ describe("User API Integration Tests", () => {
         });
     });
 
-    describe("DELETE /api/users/:id - Integration", () => {
+    describe("DELETE /admin/:id - Integration", () => {
         it("should delete an existing user", async () => {
             // Create user first
             const createResponse = await request(app)
-                .post("/api/users/register")
+                .post("/admin/create_user")
                 .send({
                     username: "deletetest",
                     password: "Password123",
@@ -154,7 +155,7 @@ describe("User API Integration Tests", () => {
 
             // Delete the user
             await request(app)
-                .delete(`/api/users/${userId}`)
+                .delete(`/admin/delete_user/${userId}`)
                 .expect(200);
 
             // Verify user is deleted
@@ -164,23 +165,23 @@ describe("User API Integration Tests", () => {
 
         it("should return 404 when deleting non-existent user", async () => {
             const response = await request(app)
-                .delete("/api/users/99999")
+                .delete("/admin/delete_user/99999")
                 .expect(404);
 
             expect(response.body.message).toBe("User not found");
         });
     });
 
-    describe("GET /api/users - Integration", () => {
+    describe("GET /admin - Integration", () => {
         it("should return all users from database", async () => {
             // Create multiple users
-            await request(app).post("/api/users/register").send({
+            await request(app).post("/admin/create_user").send({
                 username: "user1",
                 password: "Password123",
                 role: "User"
             });
             
-            await request(app).post("/api/users/register").send({
+            await request(app).post("/admin/create_user").send({
                 username: "user2",
                 password: "Password123",
                 role: "Admin"
@@ -188,7 +189,7 @@ describe("User API Integration Tests", () => {
 
             // Get all users
             const response = await request(app)
-                .get("/api/users")
+                .get("/admin")
                 .expect(200);
 
             expect(Array.isArray(response.body)).toBe(true);
