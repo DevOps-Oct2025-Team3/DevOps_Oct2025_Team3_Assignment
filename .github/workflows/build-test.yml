@@ -1,9 +1,11 @@
 name: Build & Test
 
-#Run on pushes to the develop branch only.
+#Run on feature branches and PRs (before merge to main)
 on:
+  pull_request:
+    branches: [main]
   push:
-    branches: [develop]
+    branches-ignore: [main]
 
 #Needed to create a draft release/tag.
 permissions:
@@ -27,6 +29,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "18"
+          cache: 'npm'
+          cache-dependency-path: |
+            backendserver/users/package-lock.json
+            backendserver/files/package-lock.json
 
       #Clean install for the users service (uses package-lock.json).
       - name: Install dependencies (users service)

@@ -1,14 +1,14 @@
+// Mock the modules BEFORE importing
+jest.mock("../models/userModel");
+jest.mock("../models/counterModel");
+jest.mock("bcryptjs");
+jest.mock("jsonwebtoken");
+
 const userController = require("../controllers/userController");
 const User = require("../models/userModel");
 const Counter = require("../models/counterModel");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-
-// Mock the modules
-jest.mock("../models/userModel");
-jest.mock("../models/counterModel");
-jest.mock("bcrypt");
-jest.mock("jsonwebtoken");
 
 describe("Security Tests - User Controller", () => {
     beforeEach(() => {

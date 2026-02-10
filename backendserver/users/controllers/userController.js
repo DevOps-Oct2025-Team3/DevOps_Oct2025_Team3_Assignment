@@ -1,7 +1,7 @@
 const User = require("../models/userModel.js");
 const Counter = require("../models/counterModel.js");
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 
 async function getNextSequence(sequenceName) {
     const counter = await Counter.findByIdAndUpdate(
@@ -80,13 +80,51 @@ async function deleteUser(req, res) {
     const targetUserId = req.params.id; 
 
     try {
-        const deletedUser = await User.findOneAndDelete({ userId: targetUserId });
+        // Find the user first
+        const user = await User.findOne({ userId: targetUserId });
         
-        if (deletedUser) {
-            return res.status(200).json({ message: "User deleted successfully" });
-        } else {
+        if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
+
+        // Cascade delete: Delete all files associated with this user
+        try {
+            const mongoose = require('mongoose');
+            const fs = require('fs').promises;
+            
+            // Check if Files model exists (shared database scenario)
+            try {
+                const FilesModel = mongoose.model('files');
+                
+                // Get all files for this user
+                const userFiles = await FilesModel.find({ UserId: targetUserId });
+                
+                // Delete physical files from uploads folder
+                for (const file of userFiles) {
+                    try {
+                        await fs.unlink(file.FilePath);
+                        console.log(`[deleteUser] Deleted physical file: ${file.FilePath}`);
+                    } catch (fsError) {
+                        console.error(`[deleteUser] Error deleting physical file ${file.FilePath}: ${fsError.message}`);
+                    }
+                }
+                
+                // Delete file database records
+                const deleteResult = await FilesModel.deleteMany({ UserId: targetUserId });
+                console.log(`[deleteUser] Cascade delete: Removed ${deleteResult.deletedCount} file(s) for user ${targetUserId}`);
+            } catch (modelError) {
+                // Files model not registered - expected in microservices mode
+                console.log(`[deleteUser] Files model not available (microservices mode)`);
+            }
+        } catch (cascadeError) {
+            console.error(`[deleteUser] Error in cascade delete: ${cascadeError.message}`);
+            // Continue with user deletion even if cascade fails
+        }
+
+        // Delete the user
+        await User.deleteOne({ userId: targetUserId });
+        return res.status(200).json({ message: "User deleted successfully" });
+
     } catch (error) {
         console.error("Controller error in deleteUser: ", error);
         return res.status(500).json({ message: "Internal server error" });
