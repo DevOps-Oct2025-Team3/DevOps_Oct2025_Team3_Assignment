@@ -4,11 +4,9 @@ on:
   pull_request:
     branches: [ main, master ]
     types: [opened, synchronize, reopened]
-  pull_request_review:
-    types: [submitted]
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
   security-events: write
   checks: write
@@ -303,61 +301,3 @@ jobs:
         run: |
           echo "✅ All PR checks passed successfully!"
           echo "🚀 Test deployment verified - safe to merge!"
-
-  # Auto-merge on approval
-  auto-merge:
-    name: Auto Merge on Approval
-    runs-on: ubuntu-latest
-    needs: [test, security, build, test-deployment]
-    if: |
-      github.event_name == 'pull_request_review' && 
-      github.event.review.state == 'approved' &&
-      needs.test.result == 'success' && 
-      needs.security.result == 'success' && 
-      needs.build.result == 'success' && 
-      needs.test-deployment.result == 'success'
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Get PR number
-        id: pr
-        run: |
-          PR_NUMBER=${{ github.event.pull_request.number }}
-          echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
-          echo "Processing PR #${PR_NUMBER}"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Check PR approval status
-        id: approval
-        run: |
-          APPROVALS=$(gh pr view ${{ steps.pr.outputs.pr_number }} --json reviews --jq '[.reviews[] | select(.state=="APPROVED")] | length')
-          echo "approvals=${APPROVALS}" >> $GITHUB_OUTPUT
-          echo "PR has ${APPROVALS} approval(s)"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Auto-merge PR
-        if: steps.approval.outputs.approvals >= 1
-        run: |
-          echo "🚀 Auto-merging PR #${{ steps.pr.outputs.pr_number }}"
-          gh pr merge ${{ steps.pr.outputs.pr_number }} --auto --squash
-          echo "✅ Auto-merge enabled - will merge when all checks pass"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Comment on PR
-        if: steps.approval.outputs.approvals >= 1
-        run: |
-          gh pr comment ${{ steps.pr.outputs.pr_number }} --body "✅ **Auto-merge enabled**
-
-          This PR has been approved and will be automatically merged once all required checks pass.
-          
-          - Approvals: ${{ steps.approval.outputs.approvals }}
-          - All checks: ✅ Passed
-          - Merge method: Squash and merge"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true

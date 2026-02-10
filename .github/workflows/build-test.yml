@@ -1,11 +1,10 @@
 name: Build & Test
 
-#Run on feature branches and PRs (before merge to main)
+#Run on pull requests only
 on:
   pull_request:
     branches: [main]
-  push:
-    branches-ignore: [main]
+    types: [opened, synchronize, reopened]
 
 #Needed to create a draft release/tag.
 permissions:
