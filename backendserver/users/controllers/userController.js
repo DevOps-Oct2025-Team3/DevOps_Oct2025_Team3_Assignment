@@ -78,10 +78,11 @@ async function createUser(req, res) {
 
 async function deleteUser(req, res) {
     const targetUserId = req.params.id; 
+    const safeTargetUserId = String(targetUserId).replace(/[\r\n]/g, "");
 
     try {
         // Find the user first
-        const user = await User.findOne({ userId: targetUserId });
+        const user = await User.findOne({ userId: safeTargetUserId });
         
         if (!user) {
             return res.status(404).json({ message: "User not found" });
@@ -97,7 +98,7 @@ async function deleteUser(req, res) {
                 const FilesModel = mongoose.model('files');
                 
                 // Get all files for this user
-                const userFiles = await FilesModel.find({ UserId: targetUserId });
+                const userFiles = await FilesModel.find({ UserId: safeTargetUserId });
                 
                 // Delete physical files from uploads folder
                 for (const file of userFiles) {
@@ -110,8 +111,8 @@ async function deleteUser(req, res) {
                 }
                 
                 // Delete file database records
-                const deleteResult = await FilesModel.deleteMany({ UserId: targetUserId });
-                console.log(`[deleteUser] Cascade delete: Removed ${deleteResult.deletedCount} file(s) for user ${targetUserId}`);
+                const deleteResult = await FilesModel.deleteMany({ UserId: safeTargetUserId });
+                console.log(`[deleteUser] Cascade delete: Removed ${deleteResult.deletedCount} file(s) for user ${safeTargetUserId}`);
             } catch (modelError) {
                 // Files model not registered - expected in microservices mode
                 console.log(`[deleteUser] Files model not available (microservices mode)`);
@@ -122,7 +123,7 @@ async function deleteUser(req, res) {
         }
 
         // Delete the user
-        await User.deleteOne({ userId: targetUserId });
+        await User.deleteOne({ userId: safeTargetUserId });
         return res.status(200).json({ message: "User deleted successfully" });
 
     } catch (error) {
