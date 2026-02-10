@@ -46,13 +46,17 @@ jobs:
       id: tag
       run: |
         RELEASE_TAG="${{ github.event.release.tag_name }}"
-        git tag -a "${RELEASE_TAG}" -m "Release ${RELEASE_TAG}: ${{ github.event.release.name }}"
+        if git rev-parse "${RELEASE_TAG}" >/dev/null 2>&1; then
+          echo "Tag ${RELEASE_TAG} already exists, skipping."
+        else
+          git tag -a "${RELEASE_TAG}" -m "Release ${RELEASE_TAG}: ${{ github.event.release.name }}"
+        fi
         echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
     
     - name: Push to GitHub
       run: |
         git push origin main
-        git push origin ${{ steps.tag.outputs.release_tag }}
+        git push origin ${{ steps.tag.outputs.release_tag }} --force
     
     - name: Deployment notification
       run: |
