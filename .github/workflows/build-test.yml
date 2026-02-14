@@ -1,11 +1,10 @@
 name: Build & Test
 
-#Run on feature branches and PRs (before merge to main)
+#Run on pull requests only
 on:
   pull_request:
     branches: [main]
-  push:
-    branches-ignore: [main]
+    types: [opened, synchronize, reopened]
 
 #Needed to create a draft release/tag.
 permissions:
@@ -87,6 +86,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.rc_version }}
+          target_commitish: ${{ github.head_ref }}
           draft: true
           body: |
             # Release Candidate

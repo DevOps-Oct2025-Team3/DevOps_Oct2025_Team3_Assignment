@@ -1,0 +1,141 @@
+name: Auto Merge PR on Release Publish
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  merge-pr:
+    name: Merge PR After Release Publish
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Find PR for release branch
+        id: find-pr
+        run: |
+          RELEASE_BRANCH="${{ github.event.release.target_commitish }}"
+          echo "Release branch: ${RELEASE_BRANCH}"
+          
+          # Find open PR for this branch
+          PR_NUMBER=$(gh pr list --head "${RELEASE_BRANCH}" --state open --json number --jq '.[0].number')
+          
+          if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+            echo "No open PR found for branch ${RELEASE_BRANCH}"
+            echo "pr_found=false" >> $GITHUB_OUTPUT
+          else
+            echo "Found PR #${PR_NUMBER} for branch ${RELEASE_BRANCH}"
+            echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
+            echo "pr_found=true" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Check PR status
+        if: steps.find-pr.outputs.pr_found == 'true'
+        id: pr-status
+        run: |
+          PR_NUMBER=${{ steps.find-pr.outputs.pr_number }}
+          
+          # Check if PR has approvals
+          APPROVALS=$(gh pr view ${PR_NUMBER} --json reviews --jq '[.reviews[] | select(.state=="APPROVED")] | length')
+          echo "approvals=${APPROVALS}" >> $GITHUB_OUTPUT
+          echo "PR has ${APPROVALS} approval(s)"
+          
+          # Check if all checks passed
+          CHECK_STATUS=$(gh pr view ${PR_NUMBER} --json statusCheckRollup --jq '[.statusCheckRollup[] | select(.conclusion != "SUCCESS" and .conclusion != "SKIPPED" and .conclusion != null)] | length')
+          
+          if [ "$CHECK_STATUS" = "0" ]; then
+            echo "all_checks_passed=true" >> $GITHUB_OUTPUT
+            echo "✅ All checks passed"
+          else
+            echo "all_checks_passed=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Some checks have not passed"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Merge PR
+        if: |
+          steps.find-pr.outputs.pr_found == 'true' && 
+          steps.pr-status.outputs.approvals >= 1 &&
+          steps.pr-status.outputs.all_checks_passed == 'true'
+        run: |
+          PR_NUMBER=${{ steps.find-pr.outputs.pr_number }}
+          echo "🚀 Auto-merging PR #${PR_NUMBER} after release publish"
+          echo "✅ PR has ${{ steps.pr-status.outputs.approvals }} approval(s)"
+          echo "✅ All checks passed"
+          echo "✅ Release published: ${{ github.event.release.tag_name }}"
+          
+          gh pr merge ${PR_NUMBER} --squash --subject "Release: ${{ github.event.release.tag_name }}"
+          
+          echo "✅ PR #${PR_NUMBER} merged successfully"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Missing requirements notification
+        if: |
+          steps.find-pr.outputs.pr_found == 'true' && 
+          (steps.pr-status.outputs.approvals < 1 || steps.pr-status.outputs.all_checks_passed != 'true')
+        run: |
+          PR_NUMBER=${{ steps.find-pr.outputs.pr_number }}
+          echo "⚠️ Cannot auto-merge PR #${PR_NUMBER}"
+          echo "Approvals: ${{ steps.pr-status.outputs.approvals }} (need 1+)"
+          echo "All checks passed: ${{ steps.pr-status.outputs.all_checks_passed }}"
+          
+          REASON=""
+          if [ "${{ steps.pr-status.outputs.approvals }}" -lt "1" ]; then
+            REASON="❌ Missing PR approval - at least 1 approval required"
+          fi
+          if [ "${{ steps.pr-status.outputs.all_checks_passed }}" != "true" ]; then
+            REASON="${REASON}\n❌ Some checks have not passed"
+          fi
+          
+          gh pr comment ${PR_NUMBER} --body "⚠️ **Release Published but PR Not Auto-Merged**
+          
+          **Release:** ${{ github.event.release.tag_name }}
+          
+          ${REASON}
+          
+          Please ensure the PR is approved and all checks pass before manually merging."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+      
+      - name: Comment on PR
+        if: |
+          steps.find-pr.outputs.pr_found == 'true' && 
+          steps.pr-status.outputs.approvals >= 1 &&
+          steps.pr-status.outputs.all_checks_passed == 'true'
+        run: |
+          PR_NUMBER=${{ steps.find-pr.outputs.pr_number }}
+          
+          gh pr comment ${PR_NUMBER} --body "✅ **Release Published & PR Auto-Merged**
+          
+          **Release:** ${{ github.event.release.tag_name }}
+          **Release Name:** ${{ github.event.release.name }}
+          **Approvals:** ${{ steps.pr-status.outputs.approvals }}
+          
+          This PR has been automatically merged after:
+          - ✅ Release was published
+          - ✅ PR received required approval(s)
+          - ✅ All checks passed
+          
+          [View Release](${{ github.event.release.html_url }})"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+      
+      - name: No PR found notification
+        if: steps.find-pr.outputs.pr_found != 'true'
+        run: |
+          echo "ℹ️ No open PR found for release branch ${{ github.event.release.target_commitish }}"
+          echo "This release may have been created manually or the PR was already merged."
