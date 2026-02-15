@@ -422,9 +422,17 @@ jobs:
             
             comment += `\n---\n`;
             comment += `**Pipeline Details:**\n`;
-            comment += `- Branch: \`${context.payload.pull_request.head.ref}\`\n`;
-            comment += `- Target: \`${context.payload.pull_request.base.ref}\`\n`;
-            comment += `- Commit: ${context.payload.pull_request.head.sha.substring(0, 7)}\n`;
+            
+            // Handle different event types
+            if (context.eventName === 'pull_request') {
+              comment += `- Branch: \`${context.payload.pull_request.head.ref}\`\n`;
+              comment += `- Target: \`${context.payload.pull_request.base.ref}\`\n`;
+              comment += `- Commit: ${context.payload.pull_request.head.sha.substring(0, 7)}\n`;
+            } else {
+              comment += `- Branch: \`${context.ref}\`\n`;
+              comment += `- Commit: ${context.sha.substring(0, 7)}\n`;
+            }
+            
             comment += `- Pipeline: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n`;
             
             // Add stage-specific details
@@ -434,12 +442,18 @@ jobs:
               comment += `- ${emoji} ${j.name}: ${j.status}\n`;
             });
             
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            });
+            // Only create comment on pull requests
+            if (context.eventName === 'pull_request') {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            } else {
+              console.log('Pipeline completed on push event. Summary:');
+              console.log(comment);
+            }
 
       - name: Fail if any critical stage failed
         if: needs.build-test.result == 'failure' || (needs.sast.result == 'failure' && needs.sast.result != 'skipped') || (needs.dast.result == 'failure' && needs.dast.result != 'skipped')
