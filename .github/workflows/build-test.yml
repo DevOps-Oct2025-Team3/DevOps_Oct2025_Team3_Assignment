@@ -2,9 +2,13 @@ name: Build & Test
 
 #Run on pull requests only
 on:
-  pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened]
+  workflow_run:
+    workflows: ["Pull Request Checks"]
+    types: [completed]
+    branches: [main, master]
+  push:
+    branches: [main, master]
+  workflow_dispatch:
 
 #Needed to create a draft release/tag.
 permissions:
