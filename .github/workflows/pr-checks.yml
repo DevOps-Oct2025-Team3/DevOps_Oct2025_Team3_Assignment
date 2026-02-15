@@ -1,9 +1,11 @@
-name: Pull Request Checks
+name: DevSecOps Pipeline
 
 on:
   pull_request:
     branches: [ main, master ]
     types: [opened, synchronize, reopened]
+  push:
+    branches: [ main, master ]
 
 permissions:
   contents: read
@@ -12,7 +14,7 @@ permissions:
   checks: write
 
 jobs:
-  # Build and Test (first step)
+  # 1. Build and Test
   build-test:
     name: Build and Test
     runs-on: ubuntu-latest
@@ -94,7 +96,7 @@ jobs:
           echo "rc_version=${RC_VERSION}" >> $GITHUB_OUTPUT
           echo "RC Version: ${RC_VERSION}"
 
-  # SAST (Static Application Security Testing)
+  # 2. SAST (Static Application Security Testing)
   sast:
     name: SAST - CodeQL Analysis
     runs-on: ubuntu-latest
@@ -122,11 +124,11 @@ jobs:
         with:
           category: "/language:javascript"
 
-  # SCA (Software Composition Analysis)
+  # 3. SCA (Software Composition Analysis)
   sca:
     name: SCA - Dependency Security Scan
     runs-on: ubuntu-latest
-    needs: build-test
+    needs: sast
     if: always()
     
     steps:
@@ -167,11 +169,11 @@ jobs:
           sarif_file: reports/dependency-check-report.sarif
           category: sca
 
-  # DAST (Dynamic Application Security Testing)
+  # 4. DAST (Dynamic Application Security Testing)
   dast:
     name: DAST - Live Application Scan
     runs-on: ubuntu-latest
-    needs: [build-test, sast, sca]
+    needs: [sast, sca]
     if: always()
     services:
       mongodb:
@@ -301,11 +303,11 @@ jobs:
           cd backendserver
           docker compose down -v
 
-  # Staging Deployment
+  # 5. Staging Deployment
   staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: [build-test, sast, sca, dast]
+    needs: [sast, sca, dast]
     if: always()
     environment:
       name: pr-staging-${{ github.event.pull_request.number }}
@@ -375,11 +377,11 @@ jobs:
           docker compose down -v
           echo "✅ Staging cleanup completed"
 
-  # Notification and Summary
+  # 6. Push Notification
   notify:
-    name: Pipeline Summary & Notification
+    name: Pipeline Summary & Push Notification
     runs-on: ubuntu-latest
-    needs: [build-test, sast, sca, dast, staging]
+    needs: [sast, sca, dast, staging]
     if: always()
     
     steps:
@@ -400,7 +402,7 @@ jobs:
             const skipped = jobs.filter(j => j.status === 'skipped');
             
             let comment = `## 🚀 DevSecOps Pipeline Complete\n\n`;
-            comment += `**Pipeline Order:** Build & Test → SAST → SCA → DAST → Staging → Notify\n\n`;
+            comment += `**Pipeline Order:** CodePush/PullRequest → Build & Test → SAST → SCA → DAST → Staging → Push Notification\n\n`;
             comment += `**Results:** ${passed.length}/${jobs.length} passed, ${failed.length} failed, ${skipped.length} skipped\n\n`;
             
             if (failed.length > 0) {
@@ -449,7 +451,7 @@ jobs:
       - name: Success notification
         if: needs.build-test.result == 'success' && (needs.sast.result == 'success' || needs.sast.result == 'skipped') && (needs.dast.result == 'success' || needs.dast.result == 'skipped')
         run: |
-          echo " Critical DevSecOps pipeline stages passed successfully!"
-          echo " Security scanning completed"
-          echo " Application tested and validated"
-          echo " Ready for merge approval!"
+          echo "✅ Critical DevSecOps pipeline stages passed successfully!"
+          echo "🔒 Security scanning completed"
+          echo "🚀 Application tested and validated"
+          echo "📋 Ready for merge approval!"
