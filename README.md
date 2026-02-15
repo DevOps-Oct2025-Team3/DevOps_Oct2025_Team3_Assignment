@@ -116,11 +116,6 @@ DevOps_Oct2025_Team3_Assignment/
 │   ├── userDashboard.html
 │   └── js/
 │       └── frontend.js
-├── scripts/                        # CI/CD and deployment scripts
-│   ├── ci-cd-local.ps1            # Windows pipeline script
-│   ├── ci-cd-local.sh             # Linux/Mac pipeline script
-│   ├── deploy.ps1                 # Deployment helper
-│   └── README.md
 ├── coverage/                       # Combined coverage reports
 ├── .dockerignore
 ├── .gitignore
@@ -276,55 +271,39 @@ The application includes comprehensive rate limiting to prevent abuse:
 ## 2. CI/CD Pipeline Setup and Execution
 
 ### Overview
-This project includes a comprehensive CI/CD pipeline using **GitHub Actions** for automated testing, building, and deployment.
+This project uses **GitHub Actions** for automated Continuous Integration and Continuous Deployment with a release-based workflow.
 
-**📄 Pipeline File**: [`.github/workflows/ci-cd-pipeline.yml`](.github/workflows/ci-cd-pipeline.yml)
+**📄 Workflow Files**:
+- [`.github/workflows/build-test.yml`](.github/workflows/build-test.yml) - Continuous Integration
+- [`.github/workflows/auto-merge-on-release.yml`](.github/workflows/auto-merge-on-release.yml) - Release Automation
+- [`.github/workflows/deploy-staging.yml`](.github/workflows/deploy-staging.yml) - Continuous Deployment
 
 ### Pipeline Stages
 
-The CI/CD pipeline consists of 6 automated stages:
+The CI/CD pipeline consists of 3 automated workflows:
 
-1. **Build & Test** - Install dependencies, run all tests (unit, integration, security), generate coverage
-2. **Security Scanning** - npm audit and security test execution
-3. **Build Docker Images** - Build and push container images for all services
-4. **Deploy to Staging** - Automated deployment to staging environment (optional)
-5. **Deploy to Production** - Deployment to production with smoke tests
-6. **Cleanup** - Remove old container images
+#### 1. **Build & Test** (`build-test.yml`) - Continuous Integration
+   - Triggers on pull requests to main
+   - Installs dependencies for users and files services
+   - Runs all tests (90 user tests + 22 file tests = 112 total)
+   - Builds Docker images locally (validation only)
+   - Generates test coverage reports
+   - Creates draft release with RC version tag
+   - Uploads test artifacts (retained for 7 days)
 
-### Quick Start - Local Pipeline Testing
+#### 2. **Auto Merge on Release** (`auto-merge-on-release.yml`) - Release Trigger
+   - Triggers when a release is published in GitHub
+   - Automatically merges the associated PR to main
+   - Acts as the gate between CI and CD
 
-#### Windows (PowerShell)
-```powershell
-# Run full pipeline locally
-.\scripts\ci-cd-local.ps1
-
-# Quick mode (skip integration tests and Docker)
-.\scripts\ci-cd-local.ps1 -Quick
-
-# Skip Docker stages
-.\scripts\ci-cd-local.ps1 -SkipDocker
-
-# View help
-.\scripts\ci-cd-local.ps1 -Help
-```
-
-#### Linux/Mac (Bash)
-```bash
-# Make script executable
-chmod +x scripts/ci-cd-local.sh
-
-# Run full pipeline locally
-./scripts/ci-cd-local.sh
-
-# Quick mode
-./scripts/ci-cd-local.sh --quick
-
-# Skip Docker stages
-./scripts/ci-cd-local.sh --skip-docker
-
-# View help
-./scripts/ci-cd-local.sh --help
-```
+#### 3. **Deploy to Staging** (`deploy-staging.yml`) - Continuous Deployment
+   - Triggers after auto-merge workflow completes successfully
+   - Builds and pushes Docker images to GitHub Container Registry (GHCR)
+   - Pulls images and starts services using docker-compose
+   - Runs health checks on all services
+   - Executes smoke tests
+   - Posts deployment notification
+   - Automatic rollback on failure
 
 ### Prerequisites for CI/CD
 - GitHub repository with Actions enabled
@@ -344,87 +323,208 @@ Go to your GitHub repository → **Settings** → **Secrets and variables** → 
 
 ### Step 2: Understand the Pipeline Workflow
 
-The pipeline automatically triggers on:
-- **Push to `main`/`master`**: Full pipeline including deployment
-- **Push to `develop`**: Build, test, and deploy to staging
-- **Pull Requests**: Build and test only (no deployment)
+The pipeline uses a **release-based deployment model**:
 
-**Pipeline Flow:**
+**Trigger Events:**
+- **Pull Request to `main`**: Runs CI (build & test only)
+- **Release Published**: Triggers auto-merge → deployment
+
+**Complete Workflow Flow:**
 ```
-┌─────────────────┐
-│  Push to main   │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────┐
-│  STAGE 1: Build & Test                                  │
-│  • Install dependencies                                 │
-│  • Run linting                                          │
-│  • Run unit tests                                       │
-│  • Run integration tests                                │
-│  • Generate coverage report                             │
-└────────┬────────────────────────────────────────────────┘
-         │ ✅ Tests Pass
-         ▼
-┌─────────────────────────────────────────────────────────┐
-│  STAGE 2: Security Scanning                             │
-│  • npm audit                                            │
-│  • Security tests                                       │
-└────────┬────────────────────────────────────────────────┘
-         │ ✅ No Critical Issues
-         ▼
-┌─────────────────────────────────────────────────────────┐
-│  STAGE 3: Build Docker Images                           │
-│  • Build users service image                            │
-│  • Build gateway service image                          │
-│  • Build files service image                            │
-│  • Push to ghcr.io                                      │
-└────────┬────────────────────────────────────────────────┘
-         │ ✅ Images Built
-         ▼
-┌─────────────────────────────────────────────────────────┐
-│  STAGE 4: Deploy to Production                          │
-│  • Pull latest images                                   │
-│  • Update services                                      │
-│  • Run smoke tests                                      │
-│  • Send notifications                                   │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Step 3: Deployment Commands
-
-#### Quick Deployment (Windows)
-```powershell
-# Deploy to local environment
-.\scripts\deploy.ps1 -Environment local -Action start
-
-# Deploy to production (requires configuration)
-.\scripts\deploy.ps1 -Environment production -Action start -Build
-
-# View logs
-.\scripts\deploy.ps1 -Environment local -Action logs
-
-# Stop services
-.\scripts\deploy.ps1 -Environment local -Action stop
-
-# Restart services
-.\scripts\deploy.ps1 -Environment local -Action restart
+   ┌──────────────────────────────────────────────┐
+   │     Developer opens Pull Request to main     │
+   └────────────────────┬─────────────────────────┘
+                        │
+        ┌───────────────┼───────────────┐
+        │               │               │
+        ▼               ▼               ▼
+    ┌─────────┐    ┌─────────┐    ┌──────────┐
+    │pr-checks│    │build-   │    │security  │
+    │.yml     │    │test.yml │    │scans     │
+    │         │    │         │    │          │
+    │✅ Tests │    │✅ Tests │   │✅ CodeQL │
+    │✅ Sec   │    │✅ Docker│   │✅ Deps   │
+    │✅ Build │    │✅ Draft │   │✅ DAST   │
+    │✅ Deploy│    │ Release │    │          │
+    │   Test  │    │         │    │          │
+    └────┬────┘    └────┬────┘    └────┬─────┘
+         │              │              │
+         └──────────────┼──────────────┘
+                        │
+   ✅ All checks pass + Security scans complete
+                        │
+                        ▼
+           Team reviews PR and approves
+                        │
+                        ▼
+           Team publishes draft release
+                        │
+                        ▼
+    ┌──────────────────────────────────────────────────────┐
+    │  auto-merge-on-release.yml                           │
+    │  ✓ Finds PR associated with release branch           │
+    │  ✓ Verifies PR approved + all checks passed          │
+    │  ✓ Automatically merges PR to main                   │
+    │  ✓ Posts confirmation comment                        │
+    └───────────────────┬──────────────────────────────────┘
+                        │ ✅ Merge Successful
+                        ▼
+    ┌──────────────────────────────────────────────────────┐
+    │  deploy-staging.yml (CD)                             │
+    │  ✓ Build Docker images (users, gateway, files)       │
+    │  ✓ Push to GitHub Container Registry (GHCR)          │
+    │  ✓ Pull images and start services                    │
+    │  ✓ Run health checks (all services)                  │
+    │  ✓ Execute smoke tests (login, gateway routing)      │
+    │  ✓ Post deployment notification                      │
+    │  ✓ Automatic rollback on failure                     │
+    └───────────────────┬──────────────────────────────────┘
+                        │
+                        ▼
+            ✅ Staging Deployment Complete
 ```
 
-#### Available Environments
-- `local` - Local development with docker-compose
-- `dev` - Development environment
-- `staging` - Staging/QA environment
-- `production` - Production environment
+**Parallel Execution (Phase 1 & 2):**
+- `pr-checks.yml` runs immediately (Test → Security → Build → Test Deployment)
+- `build-test.yml` runs in parallel  
+- Security scans (`sast-scanning.yml`, `sca-dependency-check.yml`, `dast-zap.yml`) run in parallel
+- **All provide feedback on PR before team review**
+
+**Sequential Execution (Phase 3-5):**
+- Team reviews PR with all check results and security findings
+- Team approves PR
+- Team publishes the draft release (created by build-test.yml)
+- Auto-merge workflow triggers after release published
+- Deploy workflow triggers after auto-merge succeeds
+
+### GitHub Container Registry (GHCR)
+The deployment workflow pushes Docker images to GHCR at:
+```
+ghcr.io/devops-oct2025-team3/devops_oct2025_team3_assignment-users:latest
+ghcr.io/devops-oct2025-team3/devops_oct2025_team3_assignment-gateway:latest
+ghcr.io/devops-oct2025-team3/devops_oct2025_team3_assignment-files:latest
+```
+
+**Benefits of GHCR:**
+- Free container storage integrated with GitHub
+- Automatic authentication using `GITHUB_TOKEN`
+- Images stored alongside your code
+- Security scanning included
+
+### How to Execute the CI/CD Pipeline
+
+Follow these steps to trigger the complete CI/CD workflow:
+
+#### Step 1: Create a Feature Branch and Make Changes
+```bash
+# Create and switch to a new branch
+git checkout -b feature/your-feature-name
+
+# Make your code changes
+# (edit files, add features, fix bugs, etc.)
+
+# Commit your changes
+git add .
+git commit -m "Add new feature"
+
+# Push to GitHub
+git push origin feature/your-feature-name
+```
+
+#### Step 2: Open a Pull Request
+1. Go to your GitHub repository
+2. Click **"Pull requests"** → **"New pull request"**
+3. Select your feature branch as the source
+4. Select `main` as the target
+5. Click **"Create pull request"**
+6. Add description and click **"Create pull request"**
+
+**What happens automatically:**
+- ✅ `build-test.yml` workflow triggers
+- ✅ Installs dependencies for users and files services
+- ✅ Runs 112 tests (90 users + 22 files)
+- ✅ Builds Docker images (validation only)
+- ✅ Generates coverage reports
+- ✅ Creates a draft release with RC version tag (e.g., `v0.0.0-rc.20260214_123456.abc1234`)
+
+#### Step 3: Review Test Results
+1. In your PR, click the **"Checks"** tab
+2. Wait for `Build & Test` workflow to complete
+3. Review test results and coverage reports
+4. If tests fail, fix issues and push new commits (workflow re-runs automatically)
+
+#### Step 4: Get PR Approval
+1. Request code review from team members
+2. Address any feedback
+3. Ensure all checks pass ✅
+
+#### Step 5: Publish the Release
+1. Go to **"Releases"** tab in your GitHub repository
+2. Find the draft release created by `build-test.yml`
+3. Click **"Edit"** on the draft release
+4. Review the release notes
+5. Click **"Publish release"**
+
+**What happens automatically:**
+- ✅ `auto-merge-on-release.yml` workflow triggers
+- ✅ Finds the PR associated with the release branch
+- ✅ Verifies PR has required approvals
+- ✅ Automatically merges the PR to `main`
+- ✅ Triggers the deployment workflow
+
+#### Step 6: Deployment to Staging
+After the auto-merge completes:
+- ✅ `deploy-staging.yml` workflow triggers automatically
+- ✅ Builds Docker images for all services (users, gateway, files)
+- ✅ Pushes images to GitHub Container Registry
+- ✅ Pulls images and starts services
+- ✅ Runs health checks on all services
+- ✅ Executes smoke tests
+- ✅ Posts deployment notification
+
+#### Step 7: Verify Deployment
+Check the deployment notification comment on your commit or:
+```bash
+# Pull the deployed images
+docker pull ghcr.io/devops-oct2025-team3/devops_oct2025_team3_assignment-users:latest
+docker pull ghcr.io/devops-oct2025-team3/devops_oct2025_team3_assignment-gateway:latest
+docker pull ghcr.io/devops-oct2025-team3/devops_oct2025_team3_assignment-files:latest
+
+# Run locally to test
+cd backendserver
+docker-compose up -d
+```
+
+### Manual Deployment (Optional)
+If you need to deploy without going through the full pipeline:
+1. Go to **Actions** tab in GitHub
+2. Click on **"Deploy to Staging"** workflow
+3. Click **"Run workflow"** button
+4. Select the branch (usually `main`)
+5. Click **"Run workflow"**
 
 ### Step 4: Monitor Pipeline Execution
 1. Navigate to the **Actions** tab in your GitHub repository
-2. Click on the latest workflow run
-3. View real-time progress of each job:
-   - ✅ **Build & Test**: Runs all 112 tests with 99%+ coverage
-   - ✅ **Security Scanning**: npm audit + security tests
-   - ✅ **Build Docker**: Creates container images for 3 services
-   - ✅ **Deploy**: Automated deployment with smoke tests
+2. View the three workflows that run in sequence:
+   
+   **Workflow 1: Build & Test** (triggers on PR)
+   - ✅ Install dependencies for users and files services
+   - ✅ Run 112 tests (90 users + 22 files)
+   - ✅ Build Docker images for validation
+   - ✅ Generate coverage reports
+   - ✅ Create draft release with RC version
+   
+   **Workflow 2: Auto Merge PR on Release Publish** (triggers on release publish)
+   - ✅ Find associated PR
+   - ✅ Verify approvals
+   - ✅ Merge PR to main
+   
+   **Workflow 3: Deploy to Staging** (triggers after auto-merge succeeds)
+   - ✅ Build and push Docker images to GHCR
+   - ✅ Start services with docker-compose
+   - ✅ Run health checks
+   - ✅ Execute smoke tests
+   - ✅ Post deployment notification
 
 ### Step 5: Verify Deployment
 After successful pipeline execution:
@@ -457,16 +557,13 @@ After successful pipeline execution:
 CI/CD Pipeline Structure
 │
 ├── .github/workflows/
-│   ├── ci-cd-pipeline.yml        # Main CI/CD pipeline
+│   ├── build-test.yml            # CI: Build and test on PRs
+│   ├── auto-merge-on-release.yml # Release automation and PR merge
+│   ├── deploy-staging.yml        # CD: Deploy to staging environment
 │   ├── sca-dependency-check.yml  # OWASP dependency scanning
-│   ├── Sast-Scanning.yml         # CodeQL security analysis
+│   ├── sast-scanning.yml         # CodeQL security analysis
 │   ├── dast-zap.yml              # OWASP ZAP dynamic testing
 │   └── codeql.yml                # Code quality analysis
-│
-├── scripts/
-│   ├── ci-cd-local.ps1           # Local pipeline runner (Windows)
-│   ├── ci-cd-local.sh            # Local pipeline runner (Linux/Mac)
-│   └── deploy.ps1                # Deployment helper script
 │
 └── backendserver/
     ├── docker-compose.yml         # Local deployment config
