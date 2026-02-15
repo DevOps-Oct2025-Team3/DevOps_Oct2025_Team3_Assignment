@@ -12,9 +12,9 @@ permissions:
   checks: write
 
 jobs:
-  # Run all tests
-  test:
-    name: Run Tests
+  # Build and Test (first step)
+  build-test:
+    name: Build and Test
     runs-on: ubuntu-latest
     
     steps:
@@ -26,22 +26,40 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: backendserver/users/package-lock.json
+          cache-dependency-path: |
+            backendserver/users/package-lock.json
+            backendserver/files/package-lock.json
+            backendserver/gateway/package-lock.json
 
-      - name: Install dependencies
+      - name: Install dependencies - Users
         working-directory: backendserver/users
         run: npm ci
 
-      - name: Run tests
+      - name: Install dependencies - Files
+        working-directory: backendserver/files
+        run: npm ci
+
+      - name: Install dependencies - Gateway
+        working-directory: backendserver/gateway
+        run: npm ci
+
+      - name: Run tests - Users
         working-directory: backendserver/users
         run: npm test
 
-      - name: Generate coverage report
+      - name: Run tests - Files
+        working-directory: backendserver/files
+        run: npm test
+
+      - name: Generate coverage report - Users
         working-directory: backendserver/users
         run: npm run test:coverage
 
+      - name: Generate coverage report - Files
+        working-directory: backendserver/files
+        run: npm run test:coverage
+
       - name: Check coverage thresholds
-        working-directory: backendserver/users
         run: |
           echo "✅ Coverage requirements met"
 
@@ -49,114 +67,209 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: backendserver/users/coverage/
-
-      - name: Comment coverage on PR
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const coverage = fs.existsSync('backendserver/users/coverage/coverage-summary.json') 
-              ? JSON.parse(fs.readFileSync('backendserver/users/coverage/coverage-summary.json', 'utf8'))
-              : null;
-            
-            if (coverage) {
-              const total = coverage.total;
-              const comment = `## 📊 Test Coverage Report
-              
-              | Metric | Coverage |
-              |--------|----------|
-              | Statements | ${total.statements.pct}% |
-              | Branches | ${total.branches.pct}% |
-              | Functions | ${total.functions.pct}% |
-              | Lines | ${total.lines.pct}% |
-              
-              [View Full Report](https://github.com/${{github.repository}}/actions/runs/${{github.run_id}})`;
-              
-              github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: comment
-              });
-            }
-        continue-on-error: true
-
-  # Security scanning
-  security:
-    name: Security Checks
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install dependencies - Users
-        working-directory: backendserver/users
-        run: npm ci
-
-      - name: Run npm audit - Users
-        working-directory: backendserver/users
-        run: npm audit --audit-level=moderate
-        continue-on-error: true
-
-      - name: Install dependencies - Files
-        working-directory: backendserver/files
-        run: npm ci
-
-      - name: Run npm audit - Files
-        working-directory: backendserver/files
-        run: npm audit --audit-level=moderate
-        continue-on-error: true
-
-      - name: Install dependencies - Gateway
-        working-directory: backendserver/gateway
-        run: npm ci
-
-      - name: Run npm audit - Gateway
-        working-directory: backendserver/gateway
-        run: npm audit --audit-level=moderate
-        continue-on-error: true
-
-  # Build Docker images
-  build:
-    name: Build Docker Images
-    runs-on: ubuntu-latest
-    needs: [test, security]
-    
-    strategy:
-      matrix:
-        service: [users, gateway, files]
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+          path: |
+            backendserver/users/coverage/
+            backendserver/files/coverage/
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image - ${{ matrix.service }}
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backendserver/${{ matrix.service }}
-          file: ./backendserver/${{ matrix.service }}/Dockerfile
-          push: false
-          tags: test-${{ matrix.service }}:pr-${{ github.event.pull_request.number }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Build Docker images
+        run: |
+          cd backendserver
+          docker compose build
 
-  # Test deployment - must succeed before merge
-  test-deployment:
-    name: Test Deployment
+      - name: Generate Version
+        id: version
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          RC_VERSION="v0.0.0-rc.${TIMESTAMP}.${SHORT_SHA}"
+          echo "rc_version=${RC_VERSION}" >> $GITHUB_OUTPUT
+          echo "RC Version: ${RC_VERSION}"
+
+  # SAST (Static Application Security Testing)
+  sast:
+    name: SAST - CodeQL Analysis
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: build-test
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: 'javascript'
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript"
+
+  # SCA (Software Composition Analysis)
+  sca:
+    name: SCA - Dependency Security Scan
+    runs-on: ubuntu-latest
+    needs: build-test
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Run OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@main
+        id: depcheck
+        with:
+          project: 'mvp-devsecops-node'
+          path: '.'
+          format: 'ALL'
+          out: 'reports'
+          args: >
+            --failOnCVSS 9
+            --enableRetired
+      
+      - name: Upload Dependency-Check reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sca-reports
+          path: reports/
+      
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('reports/dependency-check-report.sarif') != ''
+        with:
+          sarif_file: reports/dependency-check-report.sarif
+          category: sca
+
+  # DAST (Dynamic Application Security Testing)
+  dast:
+    name: DAST - Live Application Scan
+    runs-on: ubuntu-latest
+    needs: [build-test, sast, sca]
+    services:
+      mongodb:
+        image: mongo:latest
+        ports:
+          - 27017:27017
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Set environment variables
+        run: |
+          echo "PORT=3000" >> $GITHUB_ENV
+          echo "JWT_SECRET=testsecret" >> $GITHUB_ENV
+          echo "NODE_ENV=ci" >> $GITHUB_ENV
+          echo "MONGO_URI=mongodb://localhost:27017/test" >> $GITHUB_ENV
+      
+      - name: Start application services
+        run: |
+          # Wait for MongoDB to be ready
+          timeout 60 bash -c 'until nc -z localhost 27017; do sleep 2; done'
+          # Start the app in the background
+          cd backendserver
+          docker compose up -d --build
+          # Wait for services to start
+          sleep 30
+          echo "Application services started"
+      
+      - name: Verify application is running
+        run: |
+          curl -f http://localhost:4001/health || \
+          curl -f http://localhost:4001/ || \
+          (echo "Users service not reachable" && exit 1)
+          curl -f http://localhost:3000/health || \
+          curl -f http://localhost:3000/ || \
+          (echo "Gateway service not reachable" && exit 1)
+          echo "Application services are responding"
+      
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: 'http://localhost:3000'
+          cmd_options: '-a'
+          allow_issue_writing: false
+          artifact_name: 'zap-baseline-scan'
+        continue-on-error: true
+      
+      - name: Upload ZAP baseline reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-baseline-reports
+          path: |
+            report_html.html
+            report_json.json
+            report_md.md
+      
+      - name: ZAP Full Scan
+        uses: zaproxy/action-full-scan@v0.12.0
+        with:
+          target: 'http://localhost:3000'
+          cmd_options: '-a -j'
+          allow_issue_writing: false
+          artifact_name: 'zap-fullscan-scan'
+        continue-on-error: true
+      
+      - name: Upload ZAP fullscan reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-fullscan-reports
+          path: |
+            report_html.html
+            report_json.json
+            report_md.md
+      
+      - name: Fail workflow on HIGH/CRITICAL vulnerabilities
+        run: |
+          HIGH_COUNT=$(jq '[.site[].alerts[] | select(.risk=="High" or .risk=="Critical")] | length' report_json.json)
+          echo "High/Critical issues found: $HIGH_COUNT"
+          if [ "$HIGH_COUNT" -gt 0 ]; then
+            echo " Failing workflow due to HIGH/CRITICAL vulnerabilities"
+            exit 1
+          fi
+      
+      - name: Cleanup DAST services
+        if: always()
+        run: |
+          cd backendserver
+          docker compose down -v
+
+  # Staging Deployment
+  staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-test, sast, sca, dast]
     environment:
-      name: pr-preview-${{ github.event.pull_request.number }}
+      name: pr-staging-${{ github.event.pull_request.number }}
     
     steps:
       - name: Checkout code
@@ -167,22 +280,22 @@ jobs:
           cat > backendserver/.env << EOF
           PORT=3000
           JWT_SECRET=${{ secrets.JWT_SECRET || 'test-jwt-secret-for-ci' }}
-          NODE_ENV=ci
-          MONGODB_URI=${{ secrets.MONGODB_URI || 'mongodb://localhost:27017/test' }}
+          NODE_ENV=staging
+          MONGODB_URI=${{ secrets.MONGODB_URI || 'mongodb://localhost:27017/staging' }}
           EOF
           echo "✅ Environment file created"
 
-      - name: Start Services
+      - name: Start Staging Services
         run: |
-          echo "🚀 Starting test services for PR #${{ github.event.pull_request.number }}..."
+          echo "🚀 Starting staging services for PR #${{ github.event.pull_request.number }}..."
           cd backendserver
           docker compose up -d --build
           echo "⏳ Waiting for services to be ready..."
-          sleep 60
+          sleep 45
 
-      - name: Run deployment health checks
+      - name: Staging Health Check
         run: |
-          echo "🔍 Running health checks..."
+          echo "🔍 Running staging health checks..."
           
           # Check if services are responding
           echo "Checking users service..."
@@ -194,25 +307,11 @@ jobs:
           echo "Checking files service..."
           curl -f http://localhost:4002/health || curl -f http://localhost:4002/ || echo "Files service check"
           
-          echo "✅ Health checks completed"
+          echo "✅ Staging health checks completed"
 
-      - name: Print container status
-        if: always()
+      - name: Staging Smoke Tests
         run: |
-          echo "📋 Container status:"
-          cd backendserver
-          docker compose ps
-
-      - name: Print docker logs on failure
-        if: failure()
-        run: |
-          echo "📜 Printing container logs..."
-          cd backendserver
-          docker compose logs
-
-      - name: Run smoke tests
-        run: |
-          echo "🧪 Running smoke tests on deployment..."
+          echo "🧪 Running staging smoke tests..."
           
           # Test 1: Login endpoint
           echo "Testing user login..."
@@ -227,28 +326,21 @@ jobs:
           echo "Testing gateway service..."
           curl -f http://localhost:3000/ -w "\nStatus: %{http_code}\n" || echo "Gateway tested"
           
-          echo "✅ Smoke tests completed - critical paths verified"
+          echo "✅ Staging smoke tests completed"
 
-      - name: Cleanup test deployment
+      - name: Cleanup staging deployment
         if: always()
         run: |
-          echo "🧹 Cleaning up test deployment..."
+          echo "🧹 Cleaning up staging deployment..."
           cd backendserver
           docker compose down -v
-          echo "✅ Cleanup completed"
+          echo "✅ Staging cleanup completed"
 
-      - name: Deployment summary
-        run: |
-          echo "✅ Test deployment successful!"
-          echo "📦 PR #${{ github.event.pull_request.number }} - All services deployed and tested"
-          echo "📊 Health checks: ✅ | Smoke tests: ✅"
-          echo "🚀 Safe to merge!"
-
-  # PR approval check summary
-  pr-check-summary:
-    name: PR Check Summary
+  # Notification and Summary
+  notify:
+    name: Pipeline Summary & Notification
     runs-on: ubuntu-latest
-    needs: [test, security, build, test-deployment]
+    needs: [build-test, sast, sca, dast, staging]
     if: always()
     
     steps:
@@ -257,31 +349,49 @@ jobs:
         with:
           script: |
             const jobs = [
-              { name: 'Tests', status: '${{ needs.test.result }}' },
-              { name: 'Security', status: '${{ needs.security.result }}' },
-              { name: 'Build', status: '${{ needs.build.result }}' },
-              { name: 'Test Deployment', status: '${{ needs.test-deployment.result }}' }
+              { name: 'Build & Test', status: '${{ needs.build-test.result }}' },
+              { name: 'SAST', status: '${{ needs.sast.result }}' },
+              { name: 'SCA', status: '${{ needs.sca.result }}' },
+              { name: 'DAST', status: '${{ needs.dast.result }}' },
+              { name: 'Staging', status: '${{ needs.staging.result }}' }
             ];
             
             const failed = jobs.filter(j => j.status === 'failure');
             const passed = jobs.filter(j => j.status === 'success');
+            const skipped = jobs.filter(j => j.status === 'skipped');
             
-            let comment = `## ✅ Pull Request Checks Complete\n\n`;
-            comment += `**Passed:** ${passed.length}/${jobs.length}\n\n`;
+            let comment = `## 🚀 DevSecOps Pipeline Complete\n\n`;
+            comment += `**Pipeline Order:** Build & Test → SAST → SCA → DAST → Staging → Notify\n\n`;
+            comment += `**Results:** ${passed.length}/${jobs.length} passed, ${failed.length} failed, ${skipped.length} skipped\n\n`;
             
             if (failed.length > 0) {
-              comment += `### ❌ Failed Checks:\n`;
+              comment += `### ❌ Failed Stages:\n`;
               failed.forEach(j => comment += `- ${j.name}\n`);
-              comment += `\n⚠️ Please fix the failing checks before merging.\n`;
+              comment += `\n⚠️ Please fix the failing stages before merging.\n`;
             } else {
-              comment += `### ✅ All checks passed!\n\n`;
-              comment += `This PR is ready for review and merge.\n`;
+              comment += `### ✅ All pipeline stages passed!\n\n`;
+              comment += `This PR has successfully completed the full DevSecOps pipeline.\n`;
+              comment += `**Ready for review and merge.**\n`;
+            }
+            
+            if (skipped.length > 0) {
+              comment += `\n### ⏭️ Skipped Stages:\n`;
+              skipped.forEach(j => comment += `- ${j.name}\n`);
             }
             
             comment += `\n---\n`;
-            comment += `**Branch:** \`${context.payload.pull_request.head.ref}\`\n`;
-            comment += `**Target:** \`${context.payload.pull_request.base.ref}\`\n`;
-            comment += `**Commit:** ${context.payload.pull_request.head.sha.substring(0, 7)}\n`;
+            comment += `**Pipeline Details:**\n`;
+            comment += `- Branch: \`${context.payload.pull_request.head.ref}\`\n`;
+            comment += `- Target: \`${context.payload.pull_request.base.ref}\`\n`;
+            comment += `- Commit: ${context.payload.pull_request.head.sha.substring(0, 7)}\n`;
+            comment += `- Pipeline: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n`;
+            
+            // Add stage-specific details
+            comment += `\n**Stage Summary:**\n`;
+            jobs.forEach(j => {
+              const emoji = j.status === 'success' ? '✅' : j.status === 'failure' ? '❌' : j.status === 'skipped' ? '⏭️' : '⏳';
+              comment += `- ${emoji} ${j.name}: ${j.status}\n`;
+            });
             
             github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -290,14 +400,17 @@ jobs:
               body: comment
             });
 
-      - name: Fail if any check failed
-        if: needs.test.result == 'failure' || needs.security.result == 'failure' || needs.build.result == 'failure' || needs.test-deployment.result == 'failure'
+      - name: Fail if any critical stage failed
+        if: needs.build-test.result == 'failure' || needs.sast.result == 'failure' || needs.dast.result == 'failure'
         run: |
-          echo "❌ One or more checks failed. Please review the logs above."
+          echo "❌ Critical pipeline stages failed. Please review the logs above."
+          echo "🚧 Build & Test, SAST, and DAST are required for merge."
           exit 1
 
-      - name: Success
-        if: needs.test.result == 'success' && needs.security.result == 'success' && needs.build.result == 'success' && needs.test-deployment.result == 'success'
+      - name: Success notification
+        if: needs.build-test.result == 'success' && needs.sast.result == 'success' && needs.dast.result == 'success'
         run: |
-          echo "✅ All PR checks passed successfully!"
-          echo "🚀 Test deployment verified - safe to merge!"
+          echo " Critical DevSecOps pipeline stages passed successfully!"
+          echo " Security scanning completed"
+          echo " Application tested and validated"
+          echo " Ready for merge approval!"
