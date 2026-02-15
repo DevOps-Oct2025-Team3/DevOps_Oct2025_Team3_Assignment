@@ -3,10 +3,12 @@ name: 2. SCA - Dependency Security Scan
 
 on:
   workflow_run:
-    workflows: ["Build & Test"]
+    workflows: ["Pull Request Checks"]
     types: [completed]
-  pull_request:
     branches: [main, master]
+  push:
+    branches: [main, master]
+  workflow_dispatch:
 
 permissions:
   contents: read
