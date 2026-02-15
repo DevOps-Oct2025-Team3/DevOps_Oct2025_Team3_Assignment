@@ -1,4 +1,4 @@
-name: 1. SAST - CodeQL Security Scan
+name: "1. SAST - CodeQL Security Scan"
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ "main", "master" ]
   schedule:
-    - cron: '23 14 * * 2'
+    - cron: '23 14 * * 2'  # Adjust the cron schedule as needed
 
 jobs:
   analyze:
@@ -26,26 +26,25 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
-          languages: javascript
-          queries: security-extended
+          languages: javascript, typescript  # Handle both JavaScript and TypeScript
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
         with:
-          category: "/language:javascript"
+          category: "/language:javascript,typescript"  # Correctly specify both JavaScript and TypeScript
 
       - name: Enforce SAST Security Gate
         run: |
-          echo " Checking CodeQL results for HIGH / CRITICAL findings..."
-
+          echo "Checking CodeQL results for HIGH / CRITICAL findings..."
+          
           ALERTS=$(jq '[.runs[].results[] | select(.properties.severity == "error")] | length' \
             ~/.github/codeql/results/*.sarif || echo 0)
 
-          echo " High/Critical findings count: $ALERTS"
+          echo "High/Critical findings count: $ALERTS"
 
           if [ "$ALERTS" -gt 0 ]; then
-            echo " Security gate failed: High or Critical vulnerabilities detected"
+            echo "Security gate failed: High or Critical vulnerabilities detected"
             exit 1
           else
-            echo " Security gate passed: No High/Critical vulnerabilities"
+            echo "Security gate passed: No High/Critical vulnerabilities"
           fi
