@@ -2,10 +2,12 @@ name: "CodeQL SAST Scan"
 
 on:
   workflow_run:
-    workflows: ["Build & Test"]
+    workflows: ["Pull Request Checks"]
     types: [completed]
-  pull_request:
-    branches: [main]
+    branches: [main, master]
+  push:
+    branches: [main, master]
+  workflow_dispatch:
 
 jobs:
   analyze:
